@@ -1,0 +1,61 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          pbs
+# Required-Start:    pbs_server(15001) pbs_mom(15002 15003) pbs_sched(15004) trqauthd(无端口)
+### END INIT INFO
+
+set -e
+
+
+[ -f /usr/bin/pbs ] || exit 0
+
+
+# 该函数用于获取用指定语言编写、指定端口的，
+# $1表示端口, 进程id处于LISTEN
+get_pid_by_process_name() {
+	echo $(ps -ef | grep -w $1 | grep -v grep | tr -s " " | awk -F' ' '{print $2}' | sort | uniq)
+}
+
+# 启动pbs服务
+pbs_start() {
+	pbs_server; 
+	pbs_mom; 
+	pbs_sched; 
+	trqauthd;
+}
+
+# 通过kill命令终止pbs各个模块的服务。
+pbs_stop() {
+	# 终止pbs_sched
+	portkill 15004;
+	# 终止pbs_mom
+	portkill 15003;
+	# 终止pbs_server
+	portkill 15001;
+	# 终止trqauthd
+	kill -9 $(get_pid_by_process_name trqauthd)
+}
+
+
+case "$1" in
+start)
+    pbs_start
+    echo "Starting pbs:"
+    ;;
+stop)
+	echo "Stopping pbs:" 
+    pbs_stop
+    ;;
+restart)
+    echo "restart pbs:"
+	pbs_stop
+	pbs_start
+    ;;
+*)
+    echo "Usage: /usr/bin/pbs {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0

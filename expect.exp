@@ -1,0 +1,32 @@
+#!/usr/tcl/bin/expect
+# author: songquanheng
+# date: 2020-04-22 
+# desc: 该脚本用于登录芯片，并且让所有的root用户可以ssh连接。
+#    注意： expect和tcl需要提前安装
+# 注意： 该脚本并未运行完整	
+
+	set remote_ip [lindex $argv 0]
+	set remote_defalt_user [lindex $argv 1]
+	set remote_defalt_password [lindex $argv 2]
+	set remote_definition_password [lindex $argv 3]
+	spawn ssh ${remote_defalt_user}@${remote_ip}
+	expect {
+		"yes/no" {send "yes\r"; exp_continue}
+		"password:" {send "${remote_defalt_password}\n"}
+	}
+	expect "HwHiAiUser@davinci-mini:"
+	send "su root\r"
+	expect "Password:" 
+	send "${remote_defalt_password}\r"
+	expect "root@davinci-mini" 
+	send "passwd root\r"
+	expect "Enter new UNIX password" 
+	send "${remote_definition_password}\r"
+	expect "Retype new UNIX password:" 
+	send "${remote_definition_password}\r" 
+	expect "root@davinci-mini" 
+	send "sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config\n"
+	send "/etc/init.d/ssh restart\n"
+	send "exit\n"
+	send "exit\n"
+	expect eof

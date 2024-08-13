@@ -1,0 +1,13 @@
+[Unit]
+Description=Monitor service  of AI Campus, used to communicate with Health Manage Center, and also maintain the status of AI Campus
+After=campus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/java -XX:+HeapDumpOnOutOfMemoryError -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=10002 -Djava.rmi.server.hostname=manager_ip -Dcom.sun.management.jmxremote.port=10006 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=true -Dcom.sun.management.jmxremote.password.file=shell-dir/conf/jmxremote.password -Dcom.sun.management.jmxremote.access.file=shell-dir/conf/jmxremote.access -jar shell-dir/package/monitor/campus-monitor --spring.config.location=shell-dir/package/monitor/application-dev.properties
+SuccessExitStatus=143
+Restart=on-failure
+PIDFile=/var/run/campus-monitor.pid
+
+[Install]
+WantedBy=multi-user.target

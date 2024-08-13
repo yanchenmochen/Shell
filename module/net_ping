@@ -1,0 +1,10 @@
+#!/bin/bash
+for ((i=2; i<26; ++i)); do
+ssh 192.168.0.$i ping -c2 $1 > ping.log
+ping_result=$(grep "ttl" ping.log)
+if [ -n "$ping_result" ]; then
+    echo "192.168.0.$i ping $1 success"
+else
+    echo "192.168.0.$i ping $1 fail"
+fi & 
+done

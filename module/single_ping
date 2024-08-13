@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for((i=1;i<=25;i++));do
+ip=192.168.0.$i 
+ping -c2 $ip &>/dev/null ;  
+if [ $? -eq 0 ];then 
+	echo "本机与 $ip connect success"; 
+else
+	echo "本机与 $ip connect fail"
+fi;
+done

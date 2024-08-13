@@ -1,0 +1,272 @@
+#!/bin/sh
+# author：songquanheng
+# 2020-04-07 10:04:39
+# 脚本用途： 该脚本用于收集资源智能设备多个模块的运行状态
+
+
+printGreenText() {
+        echo -e  "\033[32m----$1----\033[0m"
+}
+printYellowText() {
+        echo -e  "\033[33m----$1----\033[0m"
+}
+
+printRedText() {
+        echo -e "\033[31m----$1----\033[0m"
+}
+
+printYellowBgGreenText() {
+    echo -e  "\033[43;32m----$1----\033[0m"
+}
+
+
+# 该函数用于获取用指定语言编写、指定端口的，
+# $1表示端口, 进程id处于LISTEN
+get_pid() {
+	echo $(netstat -anop | grep ":$1" | grep -w LISTEN | tr -s " " | awk -F' ' '{print $7}' | cut -d/ -f1 | sort | uniq)
+}
+
+check_nginx() {
+	nginx_pid=$(get_pid 8090)
+	if [ ! -z ${nginx_pid} ] ; then
+		printGreenText "8090端口为前端nginx的端口"
+		echo "nginx状态... ok 进程id为:  ${nginx_pid}"
+		echo ""
+	else
+		printRedText "前端nginx服务离线！"
+		printRedText "nginx启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus-front.service"
+	fi
+	printYellowText "日志查看命令: journalctl -u campus-front -f -n 300"
+	echo
+}
+
+
+check_node() {
+	node_pid=$(get_pid 8888)
+	if [ ! -z ${node_pid} ] ; then
+		printGreenText "8888端口为前端node的端口"
+		echo "node状态... ok 进程id为:  ${node_pid}"
+		
+	else
+		printRedText "node"
+		printRedText "node启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus-preview"
+	fi
+	printYellowText "日志查看命令: journalctl -u campus-preview -f -n 300"
+	echo
+}
+
+check_node1937() {
+        node_pid=$(get_pid 1937)
+        if [ ! -z ${node_pid} ] ; then
+                printGreenText "端口1937为前端node1937的端口"
+                echo "node状态... ok 进程id为:  ${node_pid}"
+        else
+                printRedText "node"
+                printRedText "node启动命令如下"
+                printRedText "请以root用户执行命令: node /opt/deploy_aarch64/stream/nms/app.js > /dev/null  2>&1 &"
+        fi
+
+        echo
+}
+
+check_campus() {
+	campus_pid=$(get_pid 8080)
+	if [ ! -z ${campus_pid} ] ; then
+		printGreenText "8080端口为应用管理端口"
+		echo "应用管理平台状态... ok 进程id为:  ${campus_pid}"
+	else
+		printRedText "应用管理为资源智能识别与分析的主平台，当前离线"
+		printRedText "应用管理平台启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus.service"
+	fi
+	printYellowText "日志查看命令: tailf -n300 /var/log/campus/info.log"
+	echo
+}
+
+# 检查服务管理程序是否运行
+check_service() {
+	service_pid=$(get_pid 5000)
+	if [ ! -z ${service_pid} ] ; then
+		printGreenText "5000端口为服务管理模块端口"
+		echo "服务管理模块状态... ok 进程id为:  ${service_pid}"
+	else
+		printRedText "服务管理模块用于进行服务的调度，当前已离线"
+		printRedText "服务管理模块启动命令如下"
+		printRedText "请以root用户执行命令: systemctl status campus-infer.service"
+	fi
+	printYellowText "日志查看命令: journalctl -u campus-infer -f -n 300"
+	echo
+}
+
+# 检查pbs模块server是否处于运行状态
+check_pbs_server() {
+	pbs_server_pid=$(get_pid 15001)
+	if [ ! -z ${pbs_server_pid} ] ; then
+		printGreenText "15001端口为pbs_server端口"
+		echo "PBS模块状态... ok 进程id为:  ${pbs_server_pid}"
+	else
+		printRedText "pbs_server离线，需要重新启动PBS模块"
+		printRedText "PBS模块启动命令如下"
+		printRedText "请以root用户依次执行命令: pbs_server; pbs_mom; pbs_sched; trqauthd"
+	fi
+
+	echo
+}
+
+# 检查pbs模块mon是否处于运行状态
+check_pbs_mon() {
+	pbs_mon_pid=$(get_pid 15002)
+	if [ ! -z ${pbs_mon_pid} ] ; then
+		printGreenText "15002 15003端口为pbs_mom端口"
+		echo "PBS模块状态... ok 进程id为:  ${pbs_mon_pid}"
+	else
+		printRedText "pbs_mon离线，需要重新启动PBS模块"
+		printRedText "PBS模块启动命令如下"
+		printRedText "请以root用户依次执行命令: pbs_server; pbs_mom; pbs_sched; trqauthd"
+	fi
+	echo
+}
+
+# 检查pbs模块sched是否处于运行状态
+check_pbs_sched() {
+	pbs_sched_pid=$(get_pid 15004)
+	if [ ! -z ${pbs_sched_pid} ] ; then
+		printGreenText "15004端口为pbs_sched端口"
+		echo "PBS模块状态... ok 进程id为:  ${pbs_sched_pid}"
+		
+	else
+		printRedText "pbs_sched服务离线，需要重新启动PBS模块"
+ 		printRedText "PBS模块启动命令如下"
+		printRedText "请以root用户依次执行命令: pbs_server; pbs_mom; pbs_sched; trqauthd"
+	fi
+
+	echo
+}
+
+# 检查elasticsearch外部通信端口是否运行
+check_elasticsearch_external_communication() {
+	es_external_communication_pid=$(get_pid 9200)
+	if [ ! -z ${es_external_communication_pid} ] ; then
+		printGreenText "9200端口为数据检索与外部通讯端口"
+		
+		echo "数据检索状态... ok 进程id为:  ${es_external_communication_pid}"
+
+	else
+		printRedText "数据检索启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart elasticsearch"
+	fi
+	printYellowText "日志查看命令: journalctl -u elasticsearch -f -n 300"
+	echo
+}
+
+# 检查elasticsearch内部通信端口是否运行
+check_elasticsearch_internal_communication() {
+	es_internal_communication_pid=$(get_pid 9300)
+	if [ ! -z ${es_internal_communication_pid} ] ; then
+		printGreenText "9300端口为数据检索节点内部通讯端口" 
+		echo "数据检索内部节点通讯状态... ok 进程id为:  ${es_internal_communication_pid}"
+		
+	else
+		printRedText "数据检索内部节点启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart elasticsearch"
+	fi
+	printYellowText "日志查看命令: journalctl -u elasticsearch -f -n 300"
+	echo	
+}
+
+# 检测检索平台是否运行
+check_search() {
+	search_pid=$(get_pid 9400)
+	if [ ! -z ${search_pid} ] ; then
+		printGreenText "9400端口为应用管理与检索平台" 
+		echo "检索平台状态... ok 进程id为:  ${search_pid}"
+		
+	else
+		printRedText "检索平台为elasticsearch的接入平台，当前已离线"
+		printRedText "检索平台启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart searchx"
+	fi
+	printYellowText "日志查看命令: journalctl -u searchx -f -n 300"
+	echo
+}
+
+# 检测达梦数据库是否运行
+check_dm() {
+	dm_pid=$(get_pid 5236)
+	if [ ! -z ${dm_pid} ] ; then
+		printGreenText "5236端口为DM数据库" 
+		echo "DM数据库状态... ok 进程id为:  ${dm_pid}"
+	else
+		printRedText "DM数据库已经离线"
+		printRedText "DM数据库启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart DmServiceDMSERVER"
+	fi
+
+	echo
+}
+
+# 检测运行管理中心是否运行
+check_monitor() {
+	monitor_pid=$(get_pid 10080)
+	if [ ! -z ${monitor_pid} ] ; then
+		printGreenText "10080端口为运管中心" 
+		echo "运管中心状态... ok 进程id为:  ${monitor_pid}"
+		
+	else
+		printRedText "运管中心已离线"
+		printRedText "运管中心启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus-monitor"
+	fi
+	printYellowText "日志查看命令: tailf -n300 /var/log/monitor/info.log"
+	echo
+}
+
+# 检测设备发现程序是否运行
+check_discovery() {
+	discovery_pid=$(get_pid 18888)
+	if [ ! -z ${monitor_pid} ] ; then
+		printGreenText "18888端口为运管中心" 
+		echo "设备发现程序状态... ok 进程id为:  ${discovery_pid}"
+		
+	else
+		printRedText "设备发现程序已离线"
+		printRedText "设备发现程序启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus-discovery"
+	fi
+	printYellowText "日志查看命令: tailf -n300 /var/log/discovery/info.log"
+	echo
+}
+
+check_algorithm() {
+	algorithm_pid=$(get_pid 18887)
+	if [ ! -z ${algorithm_pid} ]; then 
+		printGreenText "18887端口为安防分析算法运行端口"
+		echo "安防分析算法状态... ok 进程id为:  ${algorithm_id}"
+	else
+		printRedText "安防分析算法程序已离线"
+		printRedText "安防分析算法程序启动命令如下"
+		printRedText "请以root用户执行命令: systemctl restart campus-algorithm"
+	fi
+	printYellowText "日志查看命令: tailf -n300 /var/log/algorithm/info.log"
+}
+
+# 执行过程
+
+check_nginx
+# 在申威平台上不需要运行node进行实时流预览
+check_node
+#check_node1937
+check_campus
+check_monitor
+#check_discovery
+# check_service
+# check_pbs_server
+# check_pbs_mon
+# check_pbs_sched
+check_algorithm
+#check_elasticsearch_external_communication
+#check_elasticsearch_internal_communication
+#check_search
+# check_dm

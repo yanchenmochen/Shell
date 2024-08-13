@@ -1,0 +1,14 @@
+[Unit]
+Description=Security Algorithm of AI Campus, used to Detect Area Invade、Cross Border line、Area Retention Event
+After=campus.service
+
+[Service]
+Type=simple
+
+ExecStart=/usr/bin/java -Xms10240m -Xmx10240m -XX:+HeapDumpOnOutOfMemoryError -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=10004 -Djava.rmi.server.hostname=manager_ip -Dcom.sun.management.jmxremote.port=10008 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=true -Dcom.sun.management.jmxremote.password.file=shell-dir/conf/jmxremote.password -Dcom.sun.management.jmxremote.access.file=shell-dir/conf/jmxremote.access -Dfile.encoding=utf-8 -jar shell-dir/package/algorithm/campus-algorithm --spring.config.location=shell-dir/package/algorithm/application-dev.properties
+SuccessExitStatus=143
+Restart=on-failure
+PIDFile=/var/run/campus-algorithm.pid
+
+[Install]
+WantedBy=multi-user.target

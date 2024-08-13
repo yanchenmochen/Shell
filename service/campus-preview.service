@@ -1,0 +1,16 @@
+[Unit]
+    Description=simple rtsp tool, used for realtime preview
+
+[Service]
+    ExecStart=/opt/node/bin/node /opt/zysbfx/rtsp_server/server.js 
+    Restart=always
+    User=root
+    Group=root
+    Environment=PATH=/usr/bin:/usr/local/bin
+    Environment=NODE_EVN=production
+    WorkingDirectory=/opt/zysbfx/rtsp_server
+    RestartSec=5s
+    PIDFile=/run/rtsp.pid
+
+[Install]
+    WantedBy=multi-user.target

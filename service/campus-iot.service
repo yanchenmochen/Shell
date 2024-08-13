@@ -1,0 +1,13 @@
+[Unit]
+Description=IOT service  of AI Campus
+After=campus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/java -XX:+HeapDumpOnOutOfMemoryError -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=10012 -Djava.rmi.server.hostname=manager_ip -Dcom.sun.management.jmxremote.port=10016 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=true -Dcom.sun.management.jmxremote.password.file=shell-dir/conf/jmxremote.password -Dcom.sun.management.jmxremote.access.file=shell-dir/conf/jmxremote.access -jar shell-dir/package/iot/campus-iot --spring.config.location=shell-dir/package/iot/application-dev.properties
+SuccessExitStatus=143
+Restart=on-failure
+PIDFile=/var/run/campus-iot.pid
+
+[Install]
+WantedBy=multi-user.target

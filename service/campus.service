@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Campus, used to create task analyzing Target and create service, also suppport REST API for WEB
+After=network.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/java -XX:+HeapDumpOnOutOfMemoryError -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=10003 -Djava.rmi.server.hostname=manager_ip -Dcom.sun.management.jmxremote.port=10007 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=true -Dcom.sun.management.jmxremote.password.file=shell-dir/conf/jmxremote.password -Dcom.sun.management.jmxremote.access.file=shell-dir/conf/jmxremote.access -jar shell-dir/package/campus/campus --spring.config.location=shell-dir/package/campus/application-dev.properties
+SuccessExitStatus=143
+Restart=on-failure
+PIDFile=/var/run/campus.pid
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

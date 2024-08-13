@@ -1,0 +1,26 @@
+#!/bin/sh
+# author：songquanheng
+# 2020-04-09 10:04:39
+# 脚本用途： 该脚本用中止指定的端口号所在的进程
+
+# 该函数用于获取用指定语言编写、指定端口的，
+# $1表示端口, 进程id处于LISTEN
+pid_of_port() {
+	echo $(netstat -anop | grep ":$1" | grep -w LISTEN | tr -s " " | awk -F' ' '{print $7}' | cut -d/ -f1 | sort | uniq)
+}
+
+if [ "$1" = "-help" ] ; then
+        STATUS_MODE="HELP"
+elif [ "$1" = "--help" ] ; then
+        STATUS_MODE="HELP"
+elif [ "$1" = "help" ] ; then
+        STATUS_MODE="HELP"
+fi
+
+if [ "$STATUS_MODE" = "HELP" ] ; then
+
+    echo "Usage: get_pid 61616"
+    exit
+fi
+
+kill -9 $(pid_of_port $1)

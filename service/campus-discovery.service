@@ -1,0 +1,14 @@
+[Unit]
+Description=Device discovery of AI Campus, used to communicate with A200 chipand change network information and hostname
+After=campus.service
+
+[Service]
+
+Type=simple
+ExecStart=/usr/bin/java -XX:+HeapDumpOnOutOfMemoryError -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=10001 -Djava.rmi.server.hostname=manager_ip -Dcom.sun.management.jmxremote.port=10005 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=true -Dcom.sun.management.jmxremote.password.file=shell-dir/conf/jmxremote.password -Dcom.sun.management.jmxremote.access.file=shell-dir/conf/jmxremote.access -Dfile.encoding=utf-8 -jar shell-dir/package/discovery/campus-discovery --spring.config.location=shell-dir/package/discovery/application-dev.properties
+SuccessExitStatus=143
+Restart=on-failure
+PIDFile=/var/run/campus-discovery.pid
+
+[Install]
+WantedBy=multi-user.target

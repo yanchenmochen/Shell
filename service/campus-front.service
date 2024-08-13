@@ -1,0 +1,15 @@
+[Unit]
+Description=front end of campus service, used to configure analysis task creation and destruction.
+After=campus.service
+
+[Service]
+Type=forking
+WorkingDirectory=/opt/zysbfx
+ExecStart=/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+ExecReload=/usr/local/nginx/sbin/nginx -s reload
+ExecStop=/bin/kill -s QUIT $MAINPID
+Restart=on-failure
+RestartSec=40s
+
+[Install]
+WantedBy=multi-user.target
