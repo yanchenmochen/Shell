@@ -91,9 +91,11 @@ echo "default pip source is https://pypi.tuna.tsinghua.edu.cn/simple"
 echo "default pip cache is /mnt/nas_v1/common/public/pip_cache"
 echo
 echo "The specific value of configuration can be found in /mnt/nas_v1/common/public/config/docker.env"
-echo "The start process is slow because of the mount of two nas directories and parameters resolving"
+
 echo 
 echo "of course you can still use the original docker command which is named odocker"
+
+echo "The start process is slow because of the mount of two nas directories and parameters resolving"
 echo "please wait for a moment..."
 
 # 添加通用的环境变量文件和挂载
