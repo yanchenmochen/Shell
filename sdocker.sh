@@ -16,7 +16,7 @@ valid_names=(
     "chensheng"
     "jianglinnan"
     "dengqiuliang"
-    "wanglouping"
+    "wangluping"
     "cairunze"
     "lihaiyan"
     "yanjun"
@@ -38,7 +38,7 @@ valid_names=(
     "wangyuyang"
     "zhangrui"
     "panshu"
-)  
+)
 
 # 变量用于保存容器名称
 container_name=""
@@ -60,8 +60,6 @@ done
 IFS='-' read -r name_part desc_part <<< "$container_name"
 
 # 校验姓名部分是否在有效姓名数组中
-# 校验容器名称格式，必须为 "姓名全拼-名称描述" 或 "name-description" 的格式
-# 校验姓名部分是否在有效姓名数组中
 name_valid=false
 for valid_name in "${valid_names[@]}"; do
   if [ "$name_part" == "$valid_name" ]; then
@@ -75,22 +73,35 @@ if [ "$name_valid" == "false" ]; then
   echo "Error: The name part of the container name must be a valid name in the predefined list."
   echo "Error: Container name must follow the format 'namequanpin-container_description'"
   echo "for example, songquanheng-vllm-smoothquant is valid"
+  echo
+  echo "Valid names are:"
+  for valid_name in "${valid_names[@]}"; do
+    echo "  - $valid_name"
+  done
   exit 1
 fi
 
+echo "We create this command to share model、datasets、and downloads of other workers, speeding up the creation of environment"
 
-
-echo "The container to start is ${container_name}"
 echo "The start process will automatically set Huggingface and pip configuration, also, mount necessary nas directories"
+echo "default huggingface models directory is /mnt/nas_v1/common/public/model"
+echo "default huggingface datasets directory is /mnt/nas_v1/common/public/dataset"
+echo
+echo "default pip source is https://pypi.tuna.tsinghua.edu.cn/simple"
+echo "default pip cache is /mnt/nas_v1/common/public/pip_cache"
+echo
 echo "The specific value of configuration can be found in /mnt/nas_v1/common/public/config/docker.env"
-echo "The start process slow because of the mount of two nas directories and parameters resolving"
+echo "The start process is slow because of the mount of two nas directories and parameters resolving"
+echo 
+echo "of course you can still use the original docker command which is named odocker"
 echo "please wait for a moment..."
 
 # 添加通用的环境变量文件和挂载
-echo "The ultimate parameters is $@"
+echo "The container to start is ${container_name}"
+echo "The ultimate parameters are $@"
 
 args=("$@")
 # 获取除第一个参数外的所有参数
 remaining_args=("${args[@]:1}")
 
-"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define "${remaining_args[@]}" 
+"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define "${remaining_args[@]}"
