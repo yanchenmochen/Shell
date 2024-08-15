@@ -1,16 +1,20 @@
 #!/bin/bash
 
-# 表头
-printf "%-15s %-20s %-40s %-50s %-s\n" "in_container" "container_id" "container_name" "image_name" "command"
+# 使用nvidia-pid.sh获取所有的PID
+PIDS=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits | sort -u)
 
-# 遍历所有输入的 PID
-for PID in "$@"
+# 检查是否获取到了PID
+if [ -z "$PIDS" ]; then
+  echo "未找到任何使用GPU的进程"
+  exit 1
+fi
+
+# 表头
+printf "%-15s %-20s %-40s %-50s\n" "in_container" "container_id" "container_name" "image_name"
+
+# 遍历每个PID，获取容器信息
+for PID in $PIDS
 do
-  # 检查PID是否存在
-  if [ -z "$PID" ]; then
-    echo "请提供PID"
-    exit 1
-  fi
 
   # 检查PID是否在容器中运行，并提取第一个出现的容器ID
   CGROUP=$(cat /proc/$PID/cgroup | grep 'docker')
