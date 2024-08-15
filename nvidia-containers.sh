@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 使用nvidia-pid.sh获取所有的PID
+# 使用nvidia-smi获取所有的PID
 PIDS=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits | sort -u)
 
 # 检查是否获取到了PID
@@ -10,12 +10,11 @@ if [ -z "$PIDS" ]; then
 fi
 
 # 表头
-printf "%-15s %-20s %-40s %-50s %-s\n" "in_container" "container_id" "container_name" "image_name" "command"
+printf "%-10s %-15s %-20s %-40s %-50s %-s\n" "PID" "in_container" "container_id" "container_name" "image_name" "command"
 
 # 遍历每个PID，获取容器信息
 for PID in $PIDS
 do
-
   # 检查PID是否在容器中运行，并提取第一个出现的容器ID
   CGROUP=$(cat /proc/$PID/cgroup | grep 'docker')
   CONTAINER_ID_LONG=$(echo "$CGROUP" | grep -oP '(?<=/docker/)[a-f0-9]{64}' | head -n 1)
@@ -31,8 +30,8 @@ do
     CONTAINER_NAME=$(docker inspect --format '{{.Name}}' "$CONTAINER_ID_LONG" | sed 's/^.\{1\}//')
     IMAGE_NAME=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER_ID_LONG")
 
-    printf "%-15s %-20s %-40s %-50s %-s\n" "Yes" "$CONTAINER_ID_SHORT" "$CONTAINER_NAME" "$IMAGE_NAME" "$CMD"
+    printf "%-10s %-15s %-20s %-40s %-50s %-s\n" "$PID" "Yes" "$CONTAINER_ID_SHORT" "$CONTAINER_NAME" "$IMAGE_NAME" "$CMD"
   else
-    printf "%-15s %-20s %-40s %-50s %-s\n" "No" "N/A" "N/A" "N/A" "$CMD"
+    printf "%-10s %-15s %-20s %-40s %-50s %-s\n" "$PID" "No" "N/A" "N/A" "N/A" "$CMD"
   fi
 done
