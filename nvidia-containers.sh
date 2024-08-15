@@ -10,7 +10,7 @@ if [ -z "$PIDS" ]; then
 fi
 
 # 表头
-printf "%-15s %-20s %-40s %-50s\n" "in_container" "container_id" "container_name" "image_name"
+printf "%-15s %-20s %-40s %-50s %-s\n" "in_container" "container_id" "container_name" "image_name" "command"
 
 # 遍历每个PID，获取容器信息
 for PID in $PIDS
