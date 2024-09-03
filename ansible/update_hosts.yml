@@ -1,0 +1,13 @@
+---
+- name: Ensure /etc/hosts contains NAS entry
+  hosts: gpus  # 指定目标组名
+  become: yes  # 提升权限以编辑 /etc/hosts
+  tasks:
+    - name: Check if /etc/hosts contains NAS entry
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.15.35.70 NAS"
+        state: present
+        backup: yes  # 可选，备份文件
+      tags: hosts
+
