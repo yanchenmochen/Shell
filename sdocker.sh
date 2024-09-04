@@ -5,8 +5,8 @@ docker_orig=/usr/bin/docker
 # 检查第一个参数是否为 "run"
 if [ "$1" != "run" ]; then
   # 如果不是 "run"，直接传递所有参数给 docker
-  "${docker_orig}" "$@"
-  exit 0
+  "${docker_orig}" "$@" 2>&1
+  exit $?
 fi
 
 # 预定义的有效姓名数组
@@ -106,4 +106,4 @@ args=("$@")
 # 获取除第一个参数外的所有参数
 remaining_args=("${args[@]:1}")
 
-"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define "${remaining_args[@]}"
+"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define "${remaining_args[@]}" 2>&1
