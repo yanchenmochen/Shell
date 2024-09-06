@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker_orig=/usr/bin/docker
+docker_orig=/usr/bin/odocker
 
 # 检查第一个参数是否为 "run"
 if [ "$1" != "run" ]; then
