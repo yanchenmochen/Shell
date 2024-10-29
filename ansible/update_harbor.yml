@@ -1,0 +1,61 @@
+---
+- name: Update Docker daemon configuration and ensure valid JSON
+  hosts: gpus
+  become: yes
+  tasks:
+    - name: Install Python if not installed
+      ansible.builtin.package:
+        name: python3
+        state: present
+
+    - name: Ensure /etc/docker/daemon.json exists
+      ansible.builtin.file:
+        path: /etc/docker/daemon.json
+        state: touch
+
+    - name: Read existing daemon.json
+      ansible.builtin.slurp:
+        path: /etc/docker/daemon.json
+      register: daemon_json_content
+
+    - name: Decode JSON
+      ansible.builtin.set_fact:
+        daemon_json: "{{ daemon_json_content['content'] | b64decode | from_json }}"
+
+    - name: Ensure insecure-registries contains the new registry
+      ansible.builtin.set_fact:
+        updated_daemon_json: >-
+          {{
+            daemon_json | combine({
+              'insecure-registries': (daemon_json['insecure-registries'] | default([])) + ['10.200.88.53']
+            })
+          }}
+
+    - name: Write updated daemon.json
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: "{{ updated_daemon_json | to_nice_json }}"
+        backup: yes
+        mode: '0644'
+
+    - name: Validate JSON syntax
+      ansible.builtin.command:
+        cmd: 'python3 -m json.tool /etc/docker/daemon.json'
+      register: validation_result
+      failed_when: validation_result.rc != 0
+      ignore_errors: yes
+
+    - name: Print validation result
+      ansible.builtin.debug:
+        msg: "JSON validation result: {{ validation_result.stdout }}"
+
+    - name: Restart Docker service
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    - name: Log in to Docker registry
+      ansible.builtin.command:
+        cmd: docker login 10.200.88.53 --username dros_admin --password 'Dros@zjgxn&07101604'
+      ignore_errors: yes
+

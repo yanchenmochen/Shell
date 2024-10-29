@@ -1,0 +1,38 @@
+---
+- name: Ensure directories and mounts are configured
+  hosts: all  # 或者指定特定的组，如 'gpus'
+  become: yes  # 提升权限以创建目录、编辑 /etc/fstab 和执行挂载操作
+  tasks:
+    - name: Ensure directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /mnt/nas_v1
+        - /mnt/nas_v2
+        - /mnt/self-define
+
+    - name: Ensure fstab contains necessary entries
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "{{ item }}"
+        state: present
+        backup: yes  # 可选，备份文件
+      loop:
+        - "nas:/volume1/1 /mnt/nas_v1 nfs defaults 0 0"
+        - "nas:/volume1/1/self-define /mnt/self-define nfs defaults 0 0"
+        - "nas:/volume2/2 /mnt/nas_v2 nfs defaults 0 0"
+
+    - name: Ensure all filesystems are mounted
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        src: "{{ item.src }}"
+        fstype: "{{ item.fstype }}"
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop:
+        - { path: "/mnt/nas_v1", src: "nas:/volume1/1", fstype: "nfs", opts: "defaults" }
+        - { path: "/mnt/self-define", src: "nas:/volume1/1/self-define", fstype: "nfs", opts: "defaults" }
+        - { path: "/mnt/nas_v2", src: "nas:/volume2/2", fstype: "nfs", opts: "defaults" }
+
