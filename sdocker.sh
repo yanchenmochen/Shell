@@ -9,42 +9,27 @@ if [ "$1" != "run" ]; then
   exit $?
 fi
 
-# 预定义的有效姓名数组
-valid_names=(
-    "yangfei"
-    "zhangweixing"
-    "chensheng"
-    "jianglinnan"
-    "dengqiuliang"
-    "wangluping"
-    "cairunze"
-    "lihaiyan"
-    "yanjun"
-    "zhangyi"
-    "sunning"
-    "chensi"
-    "songquanheng"
-    "duchengyao"
-    "chenqun"
-    "cuixin"
-    "huangjunhao"
-    "luchenhao"
-    "dongjie"
-    "wangyuanyuan"
-    "wangfangyu"
-    "fukejie"
-    "lufanfeng"
-    "wangzeyue"
-    "wangyuyang"
-    "zhangrui"
-    "panshu"
-)
+# 从文件读取有效姓名列表，并去除前后空格
+valid_names_file="/mnt/nas_v1/common/public/config/valid-names"
+valid_names=()
 
+# 读取文件中的有效姓名到数组
+while IFS= read -r line; do
+  # 去除前后空格
+  name=$(echo "$line" | xargs)
+  valid_names+=("$name")
+done < "$valid_names_file"
 # 变量用于保存容器名称
 container_name=""
 
+
 # 遍历所有参数，查找 --name 参数并获取容器名称
 for ((i=1; i <= $#; i++)); do
+  if [[ "$arg" =~ --name=.* ]]; then
+    echo "Error: Invalid parameter format. Please use '--name <container_name>' instead of '--name=<container_name>'."
+    exit 1
+  fi
+  
   if [ "${!i}" == "--name" ]; then
     # 获取 --name 后的参数，即容器名称
     next=$((i+1))
