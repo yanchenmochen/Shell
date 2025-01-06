@@ -69,6 +69,31 @@ if [ "$name_valid" == "false" ]; then
   exit 1
 fi
 
+# 要映射到容器的端口
+container_port=22
+
+# 查找未被占用的端口范围
+start_port=10000
+end_port=20000
+
+# 查找未占用的端口
+for ((port=$start_port; port<=$end_port; port++)); do
+  # 检查端口是否被占用
+  if ! ss -tuln | grep -q ":$port "; then
+    # 找到未占用的端口，输出并退出
+    echo "Selected host port: $port"
+    host_port=$port
+    break
+  fi
+done
+
+# 如果没有找到空闲端口，退出脚本
+if [ -z "$host_port" ]; then
+  echo "No available port found in range $start_port-$end_port."
+  exit 1
+fi
+
+
 echo "We create this command to share model、datasets、and downloads of other workers, speeding up the creation of environment"
 
 echo "The start process will automatically set Huggingface and pip configuration, also, mount necessary nas directories"
@@ -94,4 +119,4 @@ args=("$@")
 # 获取除第一个参数外的所有参数
 remaining_args=("${args[@]:1}")
 
-"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define "${remaining_args[@]}" 2>&1
+"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define -p $host_port:$container_port "${remaining_args[@]}" 2>&1
