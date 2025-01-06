@@ -9,6 +9,14 @@ if [ "$1" != "run" ]; then
   exit $?
 fi
 
+# 检查 --name 是否使用了 "=" 作为分隔符
+for arg in "$@"; do
+  if [[ "$arg" =~ --name=.* ]]; then
+    echo "Error: Invalid parameter format. Please use '--name <container_name>' instead of '--name=<container_name>'."
+    exit 1
+  fi
+done
+
 # 从文件读取有效姓名列表，并去除前后空格
 valid_names_file="/mnt/nas_v1/common/public/config/valid-names"
 valid_names=()
@@ -25,11 +33,6 @@ container_name=""
 
 # 遍历所有参数，查找 --name 参数并获取容器名称
 for ((i=1; i <= $#; i++)); do
-  if [[ "$arg" =~ --name=.* ]]; then
-    echo "Error: Invalid parameter format. Please use '--name <container_name>' instead of '--name=<container_name>'."
-    exit 1
-  fi
-  
   if [ "${!i}" == "--name" ]; then
     # 获取 --name 后的参数，即容器名称
     next=$((i+1))
