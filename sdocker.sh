@@ -119,4 +119,4 @@ args=("$@")
 # 获取除第一个参数外的所有参数
 remaining_args=("${args[@]:1}")
 
-"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define -p $host_port:$container_port "${remaining_args[@]}" 2>&1
+"$docker_orig" run --name ${container_name} --env-file /mnt/nas_v1/common/public/config/docker.env --gpus all -v /mnt/nas_v1/common/public:/public -v /mnt/self-define:/mnt/self-define -p $host_port:$container_port "${remaining_args[@]}" bash -c "echo 'source /public/Shell/alias.env' >> ~/.bashrc && exec bash" 2>&1
