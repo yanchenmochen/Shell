@@ -3,9 +3,9 @@
 # Set default values for environment variables
 export MASTER_ADDR="${MASTER_ADDR:-localhost}"
 export MASTER_PORT="${MASTER_PORT:-12345}"
-export NNODES="${WORLD_SIZE:-1}"
-export NODE_RANK="${RANK:-0}"
-export GPUS_PER_NODE="${TQ_GPU_NUM:-8}"
+export WORLD_SIZE="${WORLD_SIZE:-1}"
+export RANK="${RANK:-0}"
+export TQ_GPU_NUM="${TQ_GPU_NUM:-8}"
 export megatron_home="${megatron_home:-/mnt/self-define/songquanheng/zjlab-megatron}"
 
 # Output the current values of the environment variables
