@@ -11,9 +11,10 @@ export megatron_home="${megatron_home:-/mnt/self-define/songquanheng/zjlab-megat
 # Output the current values of the environment variables
 echo "MASTER_ADDR set to: $MASTER_ADDR"
 echo "MASTER_PORT set to: $MASTER_PORT"
-echo "NNODES set to: $NNODES"
-echo "NODE_RANK set to: $NODE_RANK"
-echo "GPUS_PER_NODE set to: $GPUS_PER_NODE"
+echo "WORLD_SIZE set to: $WORLD_SIZE"
+echo "RANK set to: $RANK"
+echo "TQ_GPU_NUM set to: $TQ_GPU_NUM"
 echo "megatron_home set to: $megatron_home"
+
 
 
