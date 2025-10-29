@@ -22,7 +22,7 @@ def calculate_mae(hf_tensor, mg_tensor, bins=10):
     min_val = torch.min(absolute_diff).item()
     max_val = max_diff  # 就是上面计算的max_diff
     # 计算每个桶的统计数量
-    bin_counts = torch.histc(absolute_diff, bins=bins, min=min_val, max=max_val)
+    bin_counts = torch.histc(absolute_diff.type(torch.float32), bins=bins, min=min_val, max=max_val)
 
     # 计算每个桶的边界值（用于理解每个桶代表的数值范围）
     bin_edges = torch.linspace(min_val, max_val, bins + 1)
@@ -97,7 +97,7 @@ hf_layer_16_share_expert.outupt.pt
 hf_layer_16_share_expert_input.pt
 '''
 for layer in range(20):
-    base_outputs = ["input", "attn_input", "attn_output", "mlp_input", "mlp_output"]
+    base_outputs = ["input", "attn_input", "attn_output", "attn_residual_output", "mlp_input", "mlp_output", "mlp_residual_output"]
      
     if layer > 0:
         moe_outputs = ['moe_input', 'gate_input', 'expert_input', 'expert_output','share_expert_input', 'share_expert_output', 'moe_output']
