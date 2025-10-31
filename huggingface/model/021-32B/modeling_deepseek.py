@@ -103,7 +103,9 @@ def needs_save(hidden_states):
 def load_if(condition, layer_idx, name):
     if not condition:
         return None
-    return torch.load(mg_name_creator(layer_idx, name), map_location='cpu')
+
+    return torch.load(mg_name_creator(layer_idx, name), map_location='cuda:0')
+
     
 def save_if(condition, hidden_states, layer_idx, name):
     if not condition:
@@ -147,6 +149,7 @@ def calculate_mae(hf_tensor, mg_tensor, bins=10):
     return mae, max_diff
 
 
+
 def capture_output_to_file(func=None, filename='operator_diff.log', mode='a'):
     """装饰器：将函数的print输出重定向到文件。
     用法：
@@ -174,6 +177,7 @@ def capture_output_to_file(func=None, filename='operator_diff.log', mode='a'):
     if callable(func):
         return _decorator(func)
     return _decorator
+
     
 
 def _get_unpad_data(attention_mask):
@@ -2412,6 +2416,7 @@ class DeepseekV2ForSequenceClassification(DeepseekV2PreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
 
 @capture_output_to_file
 def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer, mg_input, mg_output, operator, kwargs=None):
