@@ -1573,32 +1573,7 @@ import sys
 from functools import wraps
 from io import StringIO
 
-def capture_output_to_file(func=None, filename='operator_diff.log', mode='a'):
-    """装饰器：将函数的print输出重定向到文件。
-    用法：
-    - @capture_output_to_file
-    - @capture_output_to_file()
-    - @capture_output_to_file(filename='x.log', mode='w')
-    """
-    def _decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            output_buffer = StringIO()
-            old_stdout = sys.stdout
-            try:
-                sys.stdout = output_buffer
-                result = f(*args, **kwargs)
-                captured_output = output_buffer.getvalue()
-                with open(filename, mode, encoding='utf-8') as f_out:
-                    f_out.write(captured_output)
-                return result, captured_output
-            finally:
-                sys.stdout = old_stdout
-        return wrapper
 
-    if callable(func):
-        return _decorator(func)
-    return _decorator
 
 def needs_use_mg():
     return os.getenv("USE_MG", "0") == '1'
@@ -1744,7 +1719,7 @@ class DeepseekV2DecoderLayer(nn.Module):
             outputs += (present_key_value,)
 
         
-        if needs_compare_layer_operator_diff():
+        if self.self_attn.layer_idx < 20 and needs_compare_layer_operator_diff():
             compare_operator_in_decoder_layer_diff(
                 decoder_layer=self,
                 mg_input=mg_input,
@@ -1755,20 +1730,20 @@ class DeepseekV2DecoderLayer(nn.Module):
             if "padding_mask" in kwargs:
                 extra_kwargs["padding_mask"] = kwargs["padding_mask"]
 
-            compare_operator_in_decoder_layer_diff(
-                decoder_layer=self,
-                mg_input=mg_attn_input,
-                mg_output=mg_attn_output,
-                operator='self_attn',
-                kwargs={
-                    'attention_mask': attention_mask,
-                    'position_ids': position_ids,
-                    'past_key_value': past_key_value,
-                    'output_attentions': output_attentions,
-                    'use_cache': use_cache,
-                    **extra_kwargs,  # 关键：把外层 padding_mask 透传进来
-                },
-            )
+            # compare_operator_in_decoder_layer_diff(
+            #     decoder_layer=self,
+            #     mg_input=mg_attn_input,
+            #     mg_output=mg_attn_output,
+            #     operator='self_attn',
+            #     kwargs={
+            #         'attention_mask': attention_mask,
+            #         'position_ids': position_ids,
+            #         'past_key_value': past_key_value,
+            #         'output_attentions': output_attentions,
+            #         'use_cache': use_cache,
+            #         **extra_kwargs,  # 关键：把外层 padding_mask 透传进来
+            #     },
+            # )
             compare_operator_in_decoder_layer_diff(
                 decoder_layer=self,
                 mg_input=mg_mlp_input,
