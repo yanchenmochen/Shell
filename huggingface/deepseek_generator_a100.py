@@ -3,7 +3,12 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 
 # 设置模型路径
 model_path = "/mnt/self-define/songquanheng/model/DeepSeek-V2-Lite-with-think-token"
+model_path = "/mnt/seed-program-nas/001688/songquanheng/model/iter_0050000_hf_new"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+
+
 # 加载分词器和模型
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
@@ -22,19 +27,39 @@ generation_config = GenerationConfig.from_pretrained(model_path)
 generation_config.pad_token_id = tokenizer.pad_token_id  # 确保 pad_token_id 正确设置
 
 # 定义 prompts 列表
-prompts = [
-    "请解释一下人工智能和机器学习的区别。",
-    "写一首关于夏天海边风景的短诗。",
-    "小王有5个苹果，给了小李2个，还剩多少？",
-    "请将下面的英文翻译成中文：‘Deep learning models require large amounts of data.’",
-    "从前有一位勇敢的探险家，他踏上了一段未知的旅程，然后……",
-    "Explain the difference between supervised and unsupervised learning.",
-    "Write a short poem about a rainy afternoon.",
-    "If John has 10 oranges and gives 3 to Mary, how many does he have left?",
-    "Translate the following sentence into Chinese: 'Artificial intelligence is transforming industries.'",
-    "Once upon a time, there was a mysterious island where strange creatures lived. Continue the story..."
+# prompts = [
+#     "请解释一下人工智能和机器学习的区别。",
+#     "写一首关于夏天海边风景的短诗。",
+#     "小王有5个苹果，给了小李2个，还剩多少？",
+#     "请将下面的英文翻译成中文：‘Deep learning models require large amounts of data.’",
+#     "从前有一位勇敢的探险家，他踏上了一段未知的旅程，然后……",
+#     "Explain the difference between supervised and unsupervised learning.",
+#     "Write a short poem about a rainy afternoon.",
+#     "If John has 10 oranges and gives 3 to Mary, how many does he have left?",
+#     "Translate the following sentence into Chinese: 'Artificial intelligence is transforming industries.'",
+#     "Once upon a time, there was a mysterious island where strange creatures lived. Continue the story..."
+# ]
+
+prompts=[
+    'who are you?'
 ]
 
+import os
+if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
+    import debugpy
+    try:
+        # 使用异常处理适配多进程代码，这样只有一个进程会监听5678端口
+        debugpy.listen(("localhost", 5678))
+        print("Waiting for debugger attach")
+        debugpy.wait_for_client()
+        print("Debugger attached")
+    except Exception as e:
+        # 如果端口已被占用，忽略异常（可能是其他进程已启动调试）
+        print(f"调试器启动失败: {e}")
+        # 或者更详细的信息
+        print(f"调试器启动失败，类型: {type(e).__name__}, 详情: {e}")
+        pass
+    
 # 逐个处理每个 prompt
 for i, prompt in enumerate(prompts):
     # 编码输入文本
