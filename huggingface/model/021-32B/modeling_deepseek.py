@@ -21,6 +21,11 @@
 import math
 import os
 import warnings
+import contextlib
+from io import StringIO
+import sys
+from functools import wraps
+
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -77,6 +82,99 @@ logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "DeepseekV2Config"
 
+def hf_name_creator(layer_idx, name):
+    return name_creator('hf', layer_idx, name)
+
+def mg_name_creator(layer_idx, name):
+    return name_creator('mg', layer_idx, name)
+def name_creator(type, layer_idx, name):
+    if type == 'hf':
+        return f"hf_layer_{layer_idx}_{name}.pt"
+
+    if type == 'mg':
+        return f"mg_layer_{layer_idx}_{name}.pt"
+
+def needs_load(hidden_states):
+    return os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1
+
+def needs_save(hidden_states):
+    return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1
+    
+def load_if(condition, layer_idx, name):
+    if not condition:
+        return None
+    return torch.load(mg_name_creator(layer_idx, name), map_location='cpu')
+    
+def save_if(condition, hidden_states, layer_idx, name):
+    if not condition:
+        return 
+    torch.save(hidden_states, mg_name_creator(layer_idx, name))
+    
+
+
+
+def calculate_mae(hf_tensor, mg_tensor, bins=10):
+    # 计算两个张量之间的MAE和最大绝对值差
+    absolute_diff = torch.abs(hf_tensor.flatten() - mg_tensor.flatten())
+    mae = torch.mean(absolute_diff).item()
+    max_diff = torch.max(absolute_diff).item()
+
+    min_val = torch.min(absolute_diff).item()
+    max_val = max_diff  # 就是上面计算的max_diff
+    # 计算每个桶的统计数量
+    bin_counts = torch.histc(absolute_diff.type(torch.float32), bins=bins, min=min_val, max=max_val)
+
+    # 计算每个桶的边界值（用于理解每个桶代表的数值范围）
+    bin_edges = torch.linspace(min_val, max_val, bins + 1)
+
+    # 打印统计结果
+    print(f"差值范围: [{min_val:.6f}, {max_val:.6f}]")
+    print("-" * 50)
+    
+    for i in range(bins):
+        lower_edge = bin_edges[i].item()
+        upper_edge = bin_edges[i+1].item()
+        count = bin_counts[i].item()
+        print(f"[{lower_edge:.6f}, {upper_edge:.6f})\t{int(count)} \t {int(count)*100/absolute_diff.numel():.2f}%")
+
+    # 打印基本的统计信息
+    # print("-" * 50)
+    # print(f"平均值 (MAE): {mae:.6f}")
+    # print(f"最大值: {max_diff:.6f}")
+    # print(f"中位数: {torch.median(absolute_diff).item():.6f}")
+    # print(f"标准差: {torch.std(absolute_diff).item():.6f}")
+    print(f"总样本数: {absolute_diff.numel()}")
+    return mae, max_diff
+
+
+def capture_output_to_file(func=None, filename='operator_diff.log', mode='a'):
+    """装饰器：将函数的print输出重定向到文件。
+    用法：
+    - @capture_output_to_file              # 使用默认文件名与追加模式
+    - @capture_output_to_file()            # 同上
+    - @capture_output_to_file(filename='x.log', mode='w')
+    """
+    def _decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            output_buffer = StringIO()
+            old_stdout = sys.stdout
+            try:
+                sys.stdout = output_buffer
+                result = f(*args, **kwargs)
+                captured_output = output_buffer.getvalue()
+                with open(filename, mode, encoding='utf-8') as output_file:
+                    output_file.write(captured_output)
+                return result, captured_output
+            finally:
+                sys.stdout = old_stdout
+        return wrapper
+
+    # 兼容无括号/有括号两种装饰器写法
+    if callable(func):
+        return _decorator(func)
+    return _decorator
+    
 
 def _get_unpad_data(attention_mask):
     seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
@@ -609,11 +707,9 @@ class MoEGate(nn.Module):
         init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
     def forward(self, hidden_states):
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_gate_input = torch.load(f"mg_layer_{self.layer_idx}_gate_input.pt")
+        mg_gate_input = load_if(needs_load(hidden_states), self.layer_idx, 'gate_input')
+        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'gate_input')
             
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.layer_idx}_gate_input.pt")
         bsz, seq_len, h = hidden_states.shape
         ### compute gating score
         hidden_states = hidden_states.view(-1, h)
@@ -698,10 +794,8 @@ class MoEGate(nn.Module):
                 aux_loss = (Pi * fi).sum() * self.alpha
         else:
             aux_loss = None
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_gate_output = torch.load(f"mg_layer_{self.layer_idx}_gate_output.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save((topk_idx, topk_weight), f"hf_layer_{self.layer_idx}_gate_output.pt")
+        mg_gate_output = load_if(needs_load(hidden_states), self.layer_idx, 'gate_output')
+        save_if(needs_save(hidden_states), (topk_idx, topk_weight), self.layer_idx, 'gate_output')
         return topk_idx, topk_weight, aux_loss
 
 
@@ -775,10 +869,8 @@ class DeepseekV2MoE(nn.Module):
             )
 
     def forward(self, hidden_states):
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_moe_input = torch.load(f"mg_layer_{self.layer_idx}_moe_input.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.layer_idx}_moe_input.pt")
+        mg_moe_input = load_if(needs_load(hidden_states), self.layer_idx, 'moe_input')
+        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'moe_input')
         identity = hidden_states
         orig_shape = hidden_states.shape
         topk_idx, topk_weight, aux_loss = self.gate(hidden_states)
@@ -795,31 +887,22 @@ class DeepseekV2MoE(nn.Module):
             y = y.to(hidden_states.dtype).view(*orig_shape)
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_expert_input = torch.load(f"mg_layer_{self.layer_idx}_expert_input.pt")
-                
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(hidden_states, f"hf_layer_{self.layer_idx}_expert_input.pt")
+            mg_expert_input = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'expert_input')
+            save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states, self.layer_idx, 'expert_input')
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_expert_output = torch.load(f"mg_layer_{self.layer_idx}_expert_output.pt")
-                
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(y, f"hf_layer_{self.layer_idx}_expert_output.pt")
+            mg_expert_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'expert_output')
+            save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'expert_output')
         if self.config.n_shared_experts is not None:
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_share_expert_input = torch.load(f"mg_layer_{self.layer_idx}_share_expert_input.pt")
-                mg_share_expert_output = torch.load(f"mg_layer_{self.layer_idx}_share_expert_output.pt")
-
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(identity, f"hf_layer_{self.layer_idx}_share_expert_input.pt")
-                torch.save(self.shared_experts(identity), f"hf_layer_{self.layer_idx}_share_expert_output.pt")
+            mg_share_expert_input = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'share_expert_input')
+            mg_share_expert_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'share_expert_output')
+            
+            if needs_save(hidden_states.view(*orig_shape)):
+                save_if(True, identity, self.layer_idx, 'share_expert_input')
+                save_if(True, self.shared_experts(identity), self.layer_idx, 'share_expert_output')
 
             y = y + self.shared_experts(identity)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-            mg_moe_output = torch.load(f"mg_layer_{self.layer_idx}_moe_output.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-            torch.save(y, f"hf_layer_{self.layer_idx}_moe_output.pt")
+        mg_moe_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'moe_output')
+        save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'moe_output')
         return y
 
     @torch.no_grad()
@@ -1486,35 +1569,41 @@ import sys
 from functools import wraps
 from io import StringIO
 
-def capture_output_to_file(filename='input.log'):
-    """装饰器：将函数的print输出重定向到文件"""
-    def decorator(func):
-        @wraps(func)
+def capture_output_to_file(func=None, filename='operator_diff.log', mode='a'):
+    """装饰器：将函数的print输出重定向到文件。
+    用法：
+    - @capture_output_to_file
+    - @capture_output_to_file()
+    - @capture_output_to_file(filename='x.log', mode='w')
+    """
+    def _decorator(f):
+        @wraps(f)
         def wrapper(*args, **kwargs):
-            # 创建字符串缓冲区
             output_buffer = StringIO()
             old_stdout = sys.stdout
-            
             try:
-                # 重定向标准输出
                 sys.stdout = output_buffer
-                # 执行函数
-                result = func(*args, **kwargs)
-                # 获取捕获的输出
+                result = f(*args, **kwargs)
                 captured_output = output_buffer.getvalue()
-                # 写入文件
-                with open(filename, 'a', encoding='utf-8') as f:
-                    f.write(captured_output)
-                    
-                return result, captured_output  # 返回结果和输出
-                
+                with open(filename, mode, encoding='utf-8') as f_out:
+                    f_out.write(captured_output)
+                return result, captured_output
             finally:
-                # 恢复标准输出
                 sys.stdout = old_stdout
-                
         return wrapper
-    return decorator
 
+    if callable(func):
+        return _decorator(func)
+    return _decorator
+
+def needs_use_mg():
+    return os.getenv("USE_MG", "0") == '1'
+
+def needs_compare_layer_operator_diff():
+    return os.getenv("LAYER_OP_DIFF", "0") == '1'
+
+def needs_compare_moe_operator_diff():
+    return os.getenv('MOE_OP_DIFF', '0') == '1'
 
 
 class DeepseekV2DecoderLayer(nn.Module):
@@ -1572,31 +1661,40 @@ class DeepseekV2DecoderLayer(nn.Module):
             warnings.warn(
                 "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
             )
-        residual = hidden_states
         import os 
-        from datetime import datetime
-        def get_timestamp():
-            """获取当前时间戳"""
-            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur_path=os.getcwd()
         ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
         os.makedirs(ckpt_dir, exist_ok=True)
         os.chdir(ckpt_dir)
+        if needs_compare_layer_operator_diff() or needs_compare_moe_operator_diff():
+            os.putenv('LOAD_PT', '1')
+
+        if needs_use_mg():
+            hidden_states = load_if(True, self.self_attn.layer_idx, "input")
+            
+        residual = hidden_states
+        
+        from datetime import datetime
+        def get_timestamp():
+            """获取当前时间戳"""
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        
         with open('input.log', 'a', encoding='utf-8') as f:
             f.write(f"{get_timestamp()}\n")
             f.write(f" hf_layer_{self.self_attn.layer_idx} hidden_states.shape: {hidden_states.shape}\n")
             f.write(f"hidden_states: {hidden_states}\n")
             f.write(f"\n")
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_input.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_input.pt")
+
+
+        mg_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'input')
+
+            
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'input')
 
         hidden_states = self.input_layernorm(hidden_states)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_input.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_input.pt")
+        mg_attn_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_input')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
@@ -1608,42 +1706,30 @@ class DeepseekV2DecoderLayer(nn.Module):
             **kwargs,
         )
 
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_output.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_output.pt")
+        mg_attn_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_output')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_output')
         hidden_states = residual + hidden_states
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_residual_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_residual_output.pt")
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_residual_output.pt")
+        mg_attn_residual_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_residual_output')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_residual_output')
 
         # Fully Connected
         residual = hidden_states
 
-        if self.self_attn.layer_idx == 0 and os.getenv("LOAD_PT", '0') == "1":
-            mg_mlp_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_input.pt")
-        if self.self_attn.layer_idx == 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+        if self.self_attn.layer_idx == 0:
+            mg_mlp_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_input')
+            save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_input')
         hidden_states = self.post_attention_layernorm(hidden_states)
         
-        if self.self_attn.layer_idx > 0 and os.getenv("LOAD_PT", '0') == "1":
-            mg_mlp_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_input.pt")
-        if self.self_attn.layer_idx > 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+        if self.self_attn.layer_idx > 0:
+            mg_mlp_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_input')
+            save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_input')
         hidden_states = self.mlp(hidden_states)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_mlp_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_output.pt")
-
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_output.pt")
+        mg_mlp_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_output')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_output')
         hidden_states = residual + hidden_states
         
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_mlp_residual_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_residual_output.pt")
-
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_residual_output.pt")
+        mg_mlp_residual_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_residual_output')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_residual_output')
 
         outputs = (hidden_states,)
 
@@ -1652,6 +1738,39 @@ class DeepseekV2DecoderLayer(nn.Module):
 
         if use_cache:
             outputs += (present_key_value,)
+
+        
+        if needs_compare_layer_operator_diff():
+            compare_operator_in_decoder_layer_diff(
+                decoder_layer=self,
+                mg_input=mg_input,
+                mg_output=mg_attn_input,
+                operator="input_layernorm",
+            )
+            extra_kwargs = {}
+            if "padding_mask" in kwargs:
+                extra_kwargs["padding_mask"] = kwargs["padding_mask"]
+
+            compare_operator_in_decoder_layer_diff(
+                decoder_layer=self,
+                mg_input=mg_attn_input,
+                mg_output=mg_attn_output,
+                operator='self_attn',
+                kwargs={
+                    'attention_mask': attention_mask,
+                    'position_ids': position_ids,
+                    'past_key_value': past_key_value,
+                    'output_attentions': output_attentions,
+                    'use_cache': use_cache,
+                    **extra_kwargs,  # 关键：把外层 padding_mask 透传进来
+                },
+            )
+            compare_operator_in_decoder_layer_diff(
+                decoder_layer=self,
+                mg_input=mg_mlp_input,
+                mg_output=mg_mlp_output,
+                operator='mlp',
+            )
         os.chdir(cur_path)
         return outputs
 
@@ -2293,3 +2412,29 @@ class DeepseekV2ForSequenceClassification(DeepseekV2PreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+@capture_output_to_file
+def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer, mg_input, mg_output, operator, kwargs=None):
+    layer_idx = decoder_layer.self_attn.layer_idx
+    mg_input = mg_input.transpose(0, 1)
+    print(f"compare layer {layer_idx} {operator}")
+
+    if operator == 'input_layernorm':
+        mg_result = decoder_layer.input_layernorm(mg_input)
+    elif operator == 'self_attn':
+        # 透传 self_attn 需要的可选参数，统一从 kwargs 获取
+        kw = kwargs or {}
+        mg_result, _, _ = decoder_layer.self_attn(
+            hidden_states=mg_input,
+            **kw,
+        )
+    elif operator == 'mlp':
+        mg_result = decoder_layer.mlp(mg_input)
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")
+
+    calculate_mae(mg_result, mg_output)
+
+
+
+
