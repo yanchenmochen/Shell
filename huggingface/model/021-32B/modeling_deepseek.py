@@ -94,6 +94,7 @@ def name_creator(type, layer_idx, name):
     if type == 'mg':
         return f"mg_layer_{layer_idx}_{name}.pt"
 
+
 def calculate_mae(hf_tensor, mg_tensor, bins=10):
     # 计算两个张量之间的MAE和最大绝对值差
     absolute_diff = torch.abs(hf_tensor.flatten() - mg_tensor.flatten())
@@ -159,6 +160,7 @@ def capture_output_to_file(filename):
         return wrapper
     return decorator
     
+
 def _get_unpad_data(attention_mask):
     seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
     indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
@@ -690,10 +692,10 @@ class MoEGate(nn.Module):
         init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
     def forward(self, hidden_states):
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_gate_input = torch.load(mg_name_creator(self.layer_idx, 'gate_input'))
             
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.layer_idx, 'gate_input'))
             
         bsz, seq_len, h = hidden_states.shape
@@ -780,9 +782,9 @@ class MoEGate(nn.Module):
                 aux_loss = (Pi * fi).sum() * self.alpha
         else:
             aux_loss = None
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_gate_output = torch.load(mg_name_creator(self.layer_idx, 'gate_output'))
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save((topk_idx, topk_weight), hf_name_creator(self.layer_idx, 'gate_output'))
         return topk_idx, topk_weight, aux_loss
 
@@ -857,10 +859,10 @@ class DeepseekV2MoE(nn.Module):
             )
 
     def forward(self, hidden_states):
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_moe_input = torch.load(mg_name_creator(self.layer_idx, 'moe_input'))
             
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.layer_idx, 'moe_input'))
         identity = hidden_states
         orig_shape = hidden_states.shape
@@ -878,32 +880,32 @@ class DeepseekV2MoE(nn.Module):
             y = y.to(hidden_states.dtype).view(*orig_shape)
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_load(hidden_states.view(*orig_shape)):
                 mg_expert_input = torch.load(mg_name_creator(self.layer_idx, 'expert_input'))
                 
                 
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_save(hidden_states.view(*orig_shape)):
                 torch.save(hidden_states, hf_name_creator(self.layer_idx, 'expert_input'))
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_load(hidden_states.view(*orig_shape)):
                 mg_expert_output = torch.load(mg_name_creator(self.layer_idx, 'expert_output'))
                 
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_save(hidden_states.view(*orig_shape)):
                 torch.save(y, hf_name_creator(self.layer_idx, 'expert_output'))
         if self.config.n_shared_experts is not None:
-            if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_load(hidden_states.view(*orig_shape)):
                 mg_share_expert_input = torch.load(mg_name_creator(self.layer_idx, 'share_expert_input'))
                 mg_share_expert_output = torch.load(mg_name_creator(self.layer_idx, 'share_expert_output'))
             
-            if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+            if needs_save(hidden_states.view(*orig_shape)):
                 torch.save(identity, hf_name_creator(self.layer_idx, 'share_expert_input'))
                 torch.save(self.shared_experts(identity), hf_name_creator(self.layer_idx, 'share_expert_output'))
 
             y = y + self.shared_experts(identity)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+        if needs_load(hidden_states.view(*orig_shape)):
             mg_moe_output = torch.load(mg_name_creator(self.layer_idx, 'moe_output'))
             
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
+        if needs_save(hidden_states.view(*orig_shape)):
             torch.save(y, hf_name_creator(self.layer_idx, 'moe_output'))
         return y
 
@@ -1672,15 +1674,21 @@ class DeepseekV2DecoderLayer(nn.Module):
             f.write(f" hf_layer_{self.self_attn.layer_idx} hidden_states.shape: {hidden_states.shape}\n")
             f.write(f"hidden_states: {hidden_states}\n")
             f.write(f"\n")
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        def needs_load(hidden_states):
+            return os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1
+
+        if needs_load(hidden_states):
             mg_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'input'))
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        def needs_save(hidden_states):
+            return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1
+            
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'input'))
 
         hidden_states = self.input_layernorm(hidden_states)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_attn_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_input'))
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_input'))
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -1693,41 +1701,41 @@ class DeepseekV2DecoderLayer(nn.Module):
             **kwargs,
         )
 
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_attn_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_output'))
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_output'))
         hidden_states = residual + hidden_states
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_attn_residual_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_residual_output'))
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_residual_output'))
 
         # Fully Connected
         residual = hidden_states
 
-        if self.self_attn.layer_idx == 0 and os.getenv("LOAD_PT", '0') == "1":
+        if self.self_attn.layer_idx == 0 and needs_load(hidden_states):
             mg_mlp_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_input'))
-        if self.self_attn.layer_idx == 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if self.self_attn.layer_idx == 0 and  needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         hidden_states = self.post_attention_layernorm(hidden_states)
         
-        if self.self_attn.layer_idx > 0 and os.getenv("LOAD_PT", '0') == "1":
+        if self.self_attn.layer_idx > 0 and needs_load(hidden_states):
             mg_mlp_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_input'))
-        if self.self_attn.layer_idx > 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if self.self_attn.layer_idx > 0 and  needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         hidden_states = self.mlp(hidden_states)
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_mlp_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_output'))
 
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_output'))
         hidden_states = residual + hidden_states
         
-        if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_load(hidden_states):
             mg_mlp_residual_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_residual_output'))
 
-        if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
+        if needs_save(hidden_states):
             torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_residual_output'))
 
         outputs = (hidden_states,)
@@ -2378,3 +2386,28 @@ class DeepseekV2ForSequenceClassification(DeepseekV2PreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer, mg_input, mg_output, operator, kwargs=None):
+    layer_idx = decoder_layer.self_attn.layer_idx
+    mg_input = mg_input.transpose(0, 1)
+    print(f"compare layer {layer_idx} {operator}")
+
+    if operator == 'input_layernorm':
+        mg_result = decoder_layer.input_layernorm(mg_input)
+    elif operator == 'self_attn':
+        # 透传 self_attn 需要的可选参数，统一从 kwargs 获取
+        kw = kwargs or {}
+        mg_result, _, _ = decoder_layer.self_attn(
+            hidden_states=mg_input,
+            **kw,
+        )
+    elif operator == 'mlp':
+        mg_result = decoder_layer.mlp(mg_input)
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")
+
+    calculate_mae(mg_result, mg_output)
+
+
+
+
