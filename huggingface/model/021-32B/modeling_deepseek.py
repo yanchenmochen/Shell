@@ -21,6 +21,11 @@
 import math
 import os
 import warnings
+import contextlib
+from io import StringIO
+import sys
+from functools import wraps
+
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -77,7 +82,83 @@ logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "DeepseekV2Config"
 
+def hf_name_creator(layer_idx, name):
+    return name_creator('hf', layer_idx, name)
 
+def mg_name_creator(layer_idx, name):
+    return name_creator('mg', layer_idx, name)
+def name_creator(type, layer_idx, name):
+    if type == 'hf':
+        return f"hf_layer_{layer_idx}_{name}.pt"
+
+    if type == 'mg':
+        return f"mg_layer_{layer_idx}_{name}.pt"
+
+def calculate_mae(hf_tensor, mg_tensor, bins=10):
+    # 计算两个张量之间的MAE和最大绝对值差
+    absolute_diff = torch.abs(hf_tensor.flatten() - mg_tensor.flatten())
+    mae = torch.mean(absolute_diff).item()
+    max_diff = torch.max(absolute_diff).item()
+
+    min_val = torch.min(absolute_diff).item()
+    max_val = max_diff  # 就是上面计算的max_diff
+    # 计算每个桶的统计数量
+    bin_counts = torch.histc(absolute_diff.type(torch.float32), bins=bins, min=min_val, max=max_val)
+
+    # 计算每个桶的边界值（用于理解每个桶代表的数值范围）
+    bin_edges = torch.linspace(min_val, max_val, bins + 1)
+
+    # 打印统计结果
+    print(f"差值范围: [{min_val:.6f}, {max_val:.6f}]")
+    print("-" * 50)
+    
+    for i in range(bins):
+        lower_edge = bin_edges[i].item()
+        upper_edge = bin_edges[i+1].item()
+        count = bin_counts[i].item()
+        print(f"[{lower_edge:.6f}, {upper_edge:.6f})\t{int(count)} \t {int(count)*100/absolute_diff.numel():.2f}%")
+
+    # 打印基本的统计信息
+    # print("-" * 50)
+    # print(f"平均值 (MAE): {mae:.6f}")
+    # print(f"最大值: {max_diff:.6f}")
+    # print(f"中位数: {torch.median(absolute_diff).item():.6f}")
+    # print(f"标准差: {torch.std(absolute_diff).item():.6f}")
+    print(f"总样本数: {absolute_diff.numel()}")
+    return mae, max_diff
+
+
+def capture_output_to_file(filename):
+    """装饰器：将函数的print输出重定向到文件"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # 创建字符串缓冲区
+            output_buffer = StringIO()
+            old_stdout = sys.stdout
+            
+            try:
+                # 重定向标准输出
+                sys.stdout = output_buffer
+                # 执行函数
+                result = func(*args, **kwargs)
+                
+                # 获取捕获的输出
+                captured_output = output_buffer.getvalue()
+                
+                # 写入文件
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(captured_output)
+                    
+                return result, captured_output  # 返回结果和输出
+                
+            finally:
+                # 恢复标准输出
+                sys.stdout = old_stdout
+                
+        return wrapper
+    return decorator
+    
 def _get_unpad_data(attention_mask):
     seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
     indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
