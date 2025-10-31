@@ -24,6 +24,9 @@ if tokenizer.pad_token is None:
 # 获取模型默认的生成配置
 generation_config = GenerationConfig.from_pretrained(model_path)
 generation_config.pad_token_id = tokenizer.pad_token_id  # 确保 pad_token_id 正确设置
+generation_config.temperature = 1e-6
+generation_config.top_k = 1
+generation_config.top_p = 0
 
 # 定义 prompts 列表
 prompts = [
