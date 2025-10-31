@@ -25,6 +25,12 @@ if tokenizer.pad_token is None:
 # 获取模型默认的生成配置
 generation_config = GenerationConfig.from_pretrained(model_path)
 generation_config.pad_token_id = tokenizer.pad_token_id  # 确保 pad_token_id 正确设置
+generation_config.use_cache = False  # 禁用生成阶段缓存，确保每步不复用KV
+
+# 同步关闭模型级缓存，确保 forward 不写入/读取 past_key_values
+model.config.use_cache = False
+# 可选：将本地 generation_config 绑定到模型，避免 generate 内部拉取预训练默认配置
+model.generation_config = generation_config
 
 # 定义 prompts 列表
 # prompts = [
@@ -59,7 +65,7 @@ if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
         # 或者更详细的信息
         print(f"调试器启动失败，类型: {type(e).__name__}, 详情: {e}")
         pass
-    
+
 # 逐个处理每个 prompt
 for i, prompt in enumerate(prompts):
     # 编码输入文本
@@ -86,7 +92,8 @@ for i, prompt in enumerate(prompts):
             generation_config=generation_config,  # 传入生成配置
             do_sample=True,    # 启用采样以产生更多样化的输出
             temperature=0.7,   # 控制采样随机性
-            pad_token_id=tokenizer.pad_token_id  # 明确指定 pad_token_id
+            pad_token_id=tokenizer.pad_token_id,  # 明确指定 pad_token_id
+            use_cache=False
         )
     
     # 解码生成结果
