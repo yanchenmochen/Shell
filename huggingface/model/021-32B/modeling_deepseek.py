@@ -691,10 +691,11 @@ class MoEGate(nn.Module):
 
     def forward(self, hidden_states):
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_gate_input = torch.load(f"mg_layer_{self.layer_idx}_gate_input.pt")
+            mg_gate_input = torch.load(mg_name_creator(self.layer_idx, 'gate_input'))
             
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.layer_idx}_gate_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.layer_idx, 'gate_input'))
+            
         bsz, seq_len, h = hidden_states.shape
         ### compute gating score
         hidden_states = hidden_states.view(-1, h)
@@ -780,9 +781,9 @@ class MoEGate(nn.Module):
         else:
             aux_loss = None
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_gate_output = torch.load(f"mg_layer_{self.layer_idx}_gate_output.pt")
+            mg_gate_output = torch.load(mg_name_creator(self.layer_idx, 'gate_output'))
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save((topk_idx, topk_weight), f"hf_layer_{self.layer_idx}_gate_output.pt")
+            torch.save((topk_idx, topk_weight), hf_name_creator(self.layer_idx, 'gate_output'))
         return topk_idx, topk_weight, aux_loss
 
 
@@ -857,9 +858,10 @@ class DeepseekV2MoE(nn.Module):
 
     def forward(self, hidden_states):
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_moe_input = torch.load(f"mg_layer_{self.layer_idx}_moe_input.pt")
+            mg_moe_input = torch.load(mg_name_creator(self.layer_idx, 'moe_input'))
+            
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.layer_idx}_moe_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.layer_idx, 'moe_input'))
         identity = hidden_states
         orig_shape = hidden_states.shape
         topk_idx, topk_weight, aux_loss = self.gate(hidden_states)
@@ -877,30 +879,32 @@ class DeepseekV2MoE(nn.Module):
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
             if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_expert_input = torch.load(f"mg_layer_{self.layer_idx}_expert_input.pt")
+                mg_expert_input = torch.load(mg_name_creator(self.layer_idx, 'expert_input'))
+                
                 
             if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(hidden_states, f"hf_layer_{self.layer_idx}_expert_input.pt")
+                torch.save(hidden_states, hf_name_creator(self.layer_idx, 'expert_input'))
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
             if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_expert_output = torch.load(f"mg_layer_{self.layer_idx}_expert_output.pt")
+                mg_expert_output = torch.load(mg_name_creator(self.layer_idx, 'expert_output'))
                 
             if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(y, f"hf_layer_{self.layer_idx}_expert_output.pt")
+                torch.save(y, hf_name_creator(self.layer_idx, 'expert_output'))
         if self.config.n_shared_experts is not None:
             if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                mg_share_expert_input = torch.load(f"mg_layer_{self.layer_idx}_share_expert_input.pt")
-                mg_share_expert_output = torch.load(f"mg_layer_{self.layer_idx}_share_expert_output.pt")
-
+                mg_share_expert_input = torch.load(mg_name_creator(self.layer_idx, 'share_expert_input'))
+                mg_share_expert_output = torch.load(mg_name_creator(self.layer_idx, 'share_expert_output'))
+            
             if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-                torch.save(identity, f"hf_layer_{self.layer_idx}_share_expert_input.pt")
-                torch.save(self.shared_experts(identity), f"hf_layer_{self.layer_idx}_share_expert_output.pt")
+                torch.save(identity, hf_name_creator(self.layer_idx, 'share_expert_input'))
+                torch.save(self.shared_experts(identity), hf_name_creator(self.layer_idx, 'share_expert_output'))
 
             y = y + self.shared_experts(identity)
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-            mg_moe_output = torch.load(f"mg_layer_{self.layer_idx}_moe_output.pt")
+            mg_moe_output = torch.load(mg_name_creator(self.layer_idx, 'moe_output'))
+            
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.view(*orig_shape).shape[1] != 1:
-            torch.save(y, f"hf_layer_{self.layer_idx}_moe_output.pt")
+            torch.save(y, hf_name_creator(self.layer_idx, 'moe_output'))
         return y
 
     @torch.no_grad()
@@ -1669,15 +1673,15 @@ class DeepseekV2DecoderLayer(nn.Module):
             f.write(f"hidden_states: {hidden_states}\n")
             f.write(f"\n")
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_input.pt")
+            mg_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'input'))
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'input'))
 
         hidden_states = self.input_layernorm(hidden_states)
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_input.pt")
+            mg_attn_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_input'))
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_input'))
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
@@ -1690,41 +1694,41 @@ class DeepseekV2DecoderLayer(nn.Module):
         )
 
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_output.pt")
+            mg_attn_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_output'))
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_output.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_output'))
         hidden_states = residual + hidden_states
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_attn_residual_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_attn_residual_output.pt")
+            mg_attn_residual_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'attn_residual_output'))
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_attn_residual_output.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'attn_residual_output'))
 
         # Fully Connected
         residual = hidden_states
 
         if self.self_attn.layer_idx == 0 and os.getenv("LOAD_PT", '0') == "1":
-            mg_mlp_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+            mg_mlp_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         if self.self_attn.layer_idx == 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         hidden_states = self.post_attention_layernorm(hidden_states)
         
         if self.self_attn.layer_idx > 0 and os.getenv("LOAD_PT", '0') == "1":
-            mg_mlp_input = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+            mg_mlp_input = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         if self.self_attn.layer_idx > 0 and  os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_input.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_input'))
         hidden_states = self.mlp(hidden_states)
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_mlp_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_output.pt")
+            mg_mlp_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_output'))
 
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_output.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_output'))
         hidden_states = residual + hidden_states
         
         if os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            mg_mlp_residual_output = torch.load(f"mg_layer_{self.self_attn.layer_idx}_mlp_residual_output.pt")
+            mg_mlp_residual_output = torch.load(mg_name_creator(self.self_attn.layer_idx, 'mlp_residual_output'))
 
         if os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1:
-            torch.save(hidden_states, f"hf_layer_{self.self_attn.layer_idx}_mlp_residual_output.pt")
+            torch.save(hidden_states, hf_name_creator(self.self_attn.layer_idx, 'mlp_residual_output'))
 
         outputs = (hidden_states,)
 
