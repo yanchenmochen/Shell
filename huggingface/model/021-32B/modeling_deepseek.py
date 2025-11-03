@@ -2410,6 +2410,8 @@ class DeepseekV2ForSequenceClassification(DeepseekV2PreTrainedModel):
 @capture_output_to_file
 def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer, mg_input, mg_output, operator, kwargs=None):
     layer_idx = decoder_layer.self_attn.layer_idx
+    if mg_input is None:
+        return 
     mg_input = mg_input.transpose(0, 1)
     print(f"compare layer {layer_idx} {operator}")
 
@@ -2427,8 +2429,5 @@ def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer
     else:
         raise ValueError(f"Unsupported operator: {operator}")
 
-    calculate_mae(mg_result, mg_output)
-
-
-
-
+    mae_average, mae_max = calculate_mae(mg_result, mg_output)
+    print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
