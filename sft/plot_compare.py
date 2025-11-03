@@ -1,11 +1,18 @@
 import matplotlib.pyplot as plt
 from numpy import average
 
-def plot_layer_diffs(data_lines, output_file='mae_diff.png', bins=20):
+def plot_layer_diffs(data_lines, output_file='mae_diff.png', bins=20, start=0, step=1):
+    """
+    绘制不同层的平均和最大MAE。
+    新增参数：
+      - start: int，指定第一个柱状索引（包含）
+      - step: int，指定步进（选取的行间隔）
+    """
     layers = []
     avg_mae = []
     max_mae = []
 
+    # 先全部解析出来
     for line in data_lines:
         if "diff" not in line:
             continue
@@ -18,6 +25,12 @@ def plot_layer_diffs(data_lines, output_file='mae_diff.png', bins=20):
         avg_mae.append(mean_val)
         max_mae.append(max_val)
 
+    # 根据start和step做切片（注意防止越界）
+    layers = layers[start::step]
+    avg_mae = avg_mae[start::step]
+    max_mae = max_mae[start::step]
+
+    # bins截断
     if len(layers) > bins:
         layers = layers[:bins]
         avg_mae = avg_mae[:bins]
@@ -63,4 +76,6 @@ if __name__ == "__main__":
     # 从命令行参数读取输出文件名（可选）
     output_file = sys.argv[1] if len(sys.argv) > 2 else 'mae_diff.png'
     bins = int(sys.argv[2]) if len(sys.argv) > 2 else 20
-    plot_layer_diffs(data, output_file,bins)
+    start = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    step = int(sys.argv[4]) if len(sys.argv) > 4 else 1
+    plot_layer_diffs(data, output_file, bins, start, step)
