@@ -904,7 +904,7 @@ class DeepseekV2MoE(nn.Module):
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
             mg_expert_input = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_input')
-            save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states, self.layer_idx, 'expert_input')
+            save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states.view(*orig_shape), self.layer_idx, 'expert_input')
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
             mg_expert_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_output')
             save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'expert_output')
