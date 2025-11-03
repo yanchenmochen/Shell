@@ -106,8 +106,8 @@ def name_creator(type, layer_idx, name):
     if type == 'mg':
         return f"mg_layer_{layer_idx}_{name}.pt"
 
-def needs_load(hidden_states):
-    return os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1
+def needs_load(hidden_states, layer_idx):
+    return os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1 and layer_idx < 20
 
 def needs_save(hidden_states):
     return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1
@@ -723,7 +723,7 @@ class MoEGate(nn.Module):
         init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
     def forward(self, hidden_states):
-        mg_gate_input = load_if(needs_load(hidden_states), self.layer_idx, 'gate_input')
+        mg_gate_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_input')
         save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'gate_input')
             
         bsz, seq_len, h = hidden_states.shape
@@ -810,7 +810,7 @@ class MoEGate(nn.Module):
                 aux_loss = (Pi * fi).sum() * self.alpha
         else:
             aux_loss = None
-        mg_gate_output = load_if(needs_load(hidden_states), self.layer_idx, 'gate_output')
+        mg_gate_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_output')
         save_if(needs_save(hidden_states), (topk_idx, topk_weight), self.layer_idx, 'gate_output')
         return topk_idx, topk_weight, aux_loss
 
@@ -885,7 +885,7 @@ class DeepseekV2MoE(nn.Module):
             )
 
     def forward(self, hidden_states):
-        mg_moe_input = load_if(needs_load(hidden_states), self.layer_idx, 'moe_input')
+        mg_moe_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'moe_input')
         save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'moe_input')
         identity = hidden_states
         orig_shape = hidden_states.shape
@@ -903,21 +903,21 @@ class DeepseekV2MoE(nn.Module):
             y = y.to(hidden_states.dtype).view(*orig_shape)
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
-            mg_expert_input = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'expert_input')
+            mg_expert_input = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_input')
             save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states, self.layer_idx, 'expert_input')
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
-            mg_expert_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'expert_output')
+            mg_expert_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_output')
             save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'expert_output')
         if self.config.n_shared_experts is not None:
-            mg_share_expert_input = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'share_expert_input')
-            mg_share_expert_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'share_expert_output')
+            mg_share_expert_input = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'share_expert_input')
+            mg_share_expert_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'share_expert_output')
             
             if needs_save(hidden_states.view(*orig_shape)):
                 save_if(True, identity, self.layer_idx, 'share_expert_input')
                 save_if(True, self.shared_experts(identity), self.layer_idx, 'share_expert_output')
 
             y = y + self.shared_experts(identity)
-        mg_moe_output = load_if(needs_load(hidden_states.view(*orig_shape)), self.layer_idx, 'moe_output')
+        mg_moe_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'moe_output')
         save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'moe_output')
         return y
 
@@ -1661,8 +1661,9 @@ class DeepseekV2DecoderLayer(nn.Module):
             os.putenv('LOAD_PT', '1')
 
         if needs_use_mg():
-            hidden_states = load_if(True, self.self_attn.layer_idx, "input")
-            hidden_states = hidden_states.transpose(0, 1)
+            if needs_load(hidden_states, self.self_attn.layer_idx):
+                hidden_states = load_if(True , self.self_attn.layer_idx, "input").transpose(0, 1)
+            
             
         residual = hidden_states
         
@@ -1679,13 +1680,13 @@ class DeepseekV2DecoderLayer(nn.Module):
             f.write(f"\n")
 
 
-        mg_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'input')
+        mg_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'input')
 
             
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'input')
 
         hidden_states = self.input_layernorm(hidden_states)
-        mg_attn_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_input')
+        mg_attn_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_input')
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -1698,29 +1699,29 @@ class DeepseekV2DecoderLayer(nn.Module):
             **kwargs,
         )
 
-        mg_attn_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_output')
+        mg_attn_output = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_output')
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_output')
         hidden_states = residual + hidden_states
-        mg_attn_residual_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'attn_residual_output')
+        mg_attn_residual_output = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_residual_output')
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_residual_output')
 
         # Fully Connected
         residual = hidden_states
 
         if self.self_attn.layer_idx == 0:
-            mg_mlp_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_input')
+            mg_mlp_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'mlp_input')
             save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_input')
         hidden_states = self.post_attention_layernorm(hidden_states)
         
         if self.self_attn.layer_idx > 0:
-            mg_mlp_input = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_input')
+            mg_mlp_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'mlp_input')
             save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_input')
         hidden_states = self.mlp(hidden_states)
-        mg_mlp_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_output')
+        mg_mlp_output = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'mlp_output')
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_output')
         hidden_states = residual + hidden_states
         
-        mg_mlp_residual_output = load_if(needs_load(hidden_states), self.self_attn.layer_idx, 'mlp_residual_output')
+        mg_mlp_residual_output = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'mlp_residual_output')
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'mlp_residual_output')
 
         outputs = (hidden_states,)
