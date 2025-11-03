@@ -122,7 +122,7 @@ def load_if(condition, layer_idx, name):
 def save_if(condition, hidden_states, layer_idx, name):
     if not condition:
         return 
-    torch.save(hidden_states, mg_name_creator(layer_idx, name))
+    torch.save(hidden_states, hf_name_creator(layer_idx, name))
     
 
 
