@@ -7,15 +7,25 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 # /mnt/hw-nas/002147/yanjun/data/pretrain/checkpoint/12.8T/tp1_pp2_ep8_mbs2_gbs4800-iter50000-hf 为021-32B转换出来的检查点
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf_new honghogn转换检查点
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf 
-model_path = "/mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf_new"
+model_path = "/mnt/seed-program-nas/001688/songquanheng/model/iter_0050000_hf_new"
 # 加载分词器和模型
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+try:
+    import torch_musa
+    has_musa = True
+except ImportError:
+    has_musa = False
+
 model = AutoModelForCausalLM.from_pretrained(
     model_path,
     trust_remote_code=True,
-    torch_dtype=torch.bfloat16,  # 使用 bfloat16 精度，确保硬件支持
+    torch_dtype=torch.bfloat16,
+)
 
-).musa()
+if has_musa:
+    model = model.musa()
+else:
+    model = model.cuda()
 
 # 确保 pad_token 有效
 if tokenizer.pad_token is None:
