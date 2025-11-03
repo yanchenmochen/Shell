@@ -82,6 +82,18 @@ logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "DeepseekV2Config"
 
+def get_map_location():
+    """
+    根据硬件平台自动选择合适的map_location
+    - 如果能导入torch_musa，返回'musa:0'
+    - 否则返回'cuda:0'
+    """
+    try:
+        import torch_musa
+        return 'musa:0'
+    except ImportError:
+        return 'cuda:0'
+
 def hf_name_creator(layer_idx, name):
     return name_creator('hf', layer_idx, name)
 
@@ -104,7 +116,7 @@ def load_if(condition, layer_idx, name):
     if not condition:
         return None
 
-    return torch.load(mg_name_creator(layer_idx, name), map_location='cuda:0')
+    return torch.load(mg_name_creator(layer_idx, name), map_location=get_map_location())
 
     
 def save_if(condition, hidden_states, layer_idx, name):
@@ -1650,6 +1662,7 @@ class DeepseekV2DecoderLayer(nn.Module):
 
         if needs_use_mg():
             hidden_states = load_if(True, self.self_attn.layer_idx, "input")
+            hidden_states = hidden_states.transpose(0, 1)
             
         residual = hidden_states
         
