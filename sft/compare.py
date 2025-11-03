@@ -100,6 +100,6 @@ for layer in range(20):
     base_outputs = ["input", "attn_input", "attn_output", "attn_residual_output", "mlp_input", "mlp_output", "mlp_residual_output"]
      
     if layer > 0:
-        moe_outputs = ['moe_input', 'gate_input', 'expert_input', 'expert_output','share_expert_input', 'share_expert_output', 'moe_output']
-        base_outputs = base_outputs[:-1] + moe_outputs + base_outputs[-1:]    
+        moe_outputs = ['moe_input', 'gate_input', 'expert_input', 'share_expert_input','expert_output', 'share_expert_output', 'moe_output']
+        base_outputs = base_outputs[:-2] + moe_outputs + base_outputs[-2:]    
     compare_layer_output(layer=layer, name=base_outputs)
