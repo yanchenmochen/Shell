@@ -730,7 +730,7 @@ class MoEGate(nn.Module):
         ### compute gating score
         hidden_states = hidden_states.view(-1, h)
         logits = F.linear(
-            hidden_states, self.weight, None
+            hidden_states.type(torch.float32), self.weight.type(torch.float32), None
         )
         if self.scoring_func == "softmax":
             scores = logits.softmax(dim=-1, dtype=torch.float32)
