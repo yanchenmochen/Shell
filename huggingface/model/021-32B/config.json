@@ -39,7 +39,7 @@
   "rope_scaling": {
     "beta_fast": 32,
     "beta_slow": 1,
-    "factor": 40,
+    "factor": 1,
     "mscale": 0.707,
     "mscale_all_dim": 0.707,
     "original_max_position_embeddings": 4096,
