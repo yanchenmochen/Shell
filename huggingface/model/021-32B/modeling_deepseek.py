@@ -1151,6 +1151,15 @@ class DeepseekV2Attention(nn.Module):
             warnings.warn(
                 "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
             )
+        # save_if(True, self.q_a_proj.weight, self.layer_idx, 'q_a_proj_weight')
+        # save_if(True, self.q_a_layernorm.weight, self.layer_idx, 'q_a_layernorm_weight')
+        # save_if(True, self.q_b_proj.weight, self.layer_idx, 'q_b_proj_weight')
+        
+        # save_if(True, self.kv_a_layernorm.weight, self.layer_idx, 'kv_a_layernorm_weight')
+        # save_if(True, self.kv_a_proj_with_mqa.weight, self.layer_idx, 'kv_a_proj_with_mqa_weight')
+        # save_if(True, self.kv_b_proj.weight, self.layer_idx, 'kv_b_proj_weight')
+        # save_if(True, self.o_proj.weight, self.layer_idx, 'o_proj_weight')
+        
         bsz, q_len, _ = hidden_states.size()
 
         if self.q_lora_rank is None:
