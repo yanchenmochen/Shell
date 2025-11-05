@@ -1,0 +1,11 @@
+iteration    13022/  604350 | consumed samples:     25003200 | consumed tokens: 102,413,107,200 | lm loss: 2.131382E+00 | 
+iteration    19760/  604350 | consumed samples:     48830400 | consumed tokens: 200,009,318,400 | lm loss: 2.057534E+00 | 
+iteration    24896/  604350 | consumed samples:     73248800 | consumed tokens: 300,027,084,800 | lm loss: 2.025134E+00 | 
+iteration    29981/  604350 | consumed samples:     97656800 | consumed tokens: 400,002,252,800 | lm loss: 2.001817E+00 | 
+iteration    35068/  604350 | consumed samples:    122074400 | consumed tokens: 500,016,742,400 | lm loss: 1.992147E+00 | 
+iteration    40154/  604350 | consumed samples:    146487200 | consumed tokens: 600,011,571,200 | lm loss: 1.974651E+00 | 
+iteration    45240/  604350 | consumed samples:    170900000 | consumed tokens: 700,006,400,000 | lm loss: 1.949795E+00 | 
+iteration    50326/  604350 | consumed samples:    195312800 | consumed tokens: 800,001,228,800 | lm loss: 1.952603E+00 | 
+iteration    55413/  604350 | consumed samples:    219730400 | consumed tokens: 900,015,718,400 | lm loss: 1.942685E+00 | 
+iteration    60499/  604350 | consumed samples:    244143200 | consumed tokens: 1,000,010,547,200 | lm loss: 1.944074E+00 | 
+ 
