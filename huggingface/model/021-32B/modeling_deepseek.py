@@ -110,7 +110,14 @@ def needs_load(hidden_states, layer_idx):
     return os.getenv("LOAD_PT", '0') == "1" and hidden_states.shape[1] != 1 and layer_idx < 20
 
 def needs_save(hidden_states):
-    return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1
+    dim = hidden_states.dim()
+    if dim == 2:
+        return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[0] != 1
+    elif dim == 3:
+        return os.getenv("SAVE_PT", '0') == "1" and hidden_states.shape[1] != 1
+    else:
+        return False
+    
     
 def load_if(condition, layer_idx, name):
     if not condition:
@@ -729,8 +736,9 @@ class MoEGate(nn.Module):
         bsz, seq_len, h = hidden_states.shape
         ### compute gating score
         hidden_states = hidden_states.view(-1, h)
+        # HF default use .type(torch.float32), for consistency change to mcore 
         logits = F.linear(
-            hidden_states.type(torch.float32), self.weight.type(torch.float32), None
+            hidden_states, self.weight, None
         )
         if self.scoring_func == "softmax":
             scores = logits.softmax(dim=-1, dtype=torch.float32)
@@ -810,7 +818,10 @@ class MoEGate(nn.Module):
                 aux_loss = (Pi * fi).sum() * self.alpha
         else:
             aux_loss = None
+        # (mg_scores) shape ([seqlen, experts_num])
         mg_gate_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_output')
+        if mg_gate_output is not None:
+            mg_idx, mg_weight = torch.topk(mg_gate_output, k=7, dim=-1)
         save_if(needs_save(hidden_states), (topk_idx, topk_weight), self.layer_idx, 'gate_output')
         return topk_idx, topk_weight, aux_loss
 
