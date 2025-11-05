@@ -135,6 +135,8 @@ def save_if(condition, hidden_states, layer_idx, name):
 
 
 def calculate_mae(hf_tensor, mg_tensor, bins=10):
+    print(f"HF  Tensor: shape: {hf_tensor.shape} \n{hf_tensor} ")
+    print(f"MG Tensor: shape: {mg_tensor.shape} \n{mg_tensor} ")
     # 计算两个张量之间的MAE和最大绝对值差
     absolute_diff = torch.abs(hf_tensor.flatten() - mg_tensor.flatten())
     mae = torch.mean(absolute_diff).item()
