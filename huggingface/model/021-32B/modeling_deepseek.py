@@ -1557,58 +1557,35 @@ ATTENTION_CLASSES = {
     "flash_attention_2": DeepseekV2FlashAttention2,
 }
 
-def calculate_mae(hf_tensor, mg_tensor, bins=10):
-    # 计算两个张量之间的MAE和最大绝对值差
+def calculate_relative_error(hf_tensor, mg_tensor, bins=10, eps=1e-12):
+    # 计算两个张量之间的相对误差和最大相对误差
+    # 相对误差定义为 |hf - mg| / (|mg| + eps)
     absolute_diff = torch.abs(hf_tensor.flatten() - mg_tensor.flatten())
-    mae = torch.mean(absolute_diff).item()
-    max_diff = torch.max(absolute_diff).item()
+    denom = torch.clamp(torch.abs(mg_tensor.flatten()), min=eps)
+    relative_diff = (absolute_diff / denom).type(torch.float32)
 
-    min_val = torch.min(absolute_diff).item()
-    max_val = max_diff  # 就是上面计算的max_diff
+    mean_rel_error = torch.mean(relative_diff).item()
+    max_rel_error = torch.max(relative_diff).item()
+
+    min_val = torch.min(relative_diff).item()
+    max_val = max_rel_error
     # 计算每个桶的统计数量
-    bin_counts = torch.histc(absolute_diff.type(torch.float32), bins=bins, min=min_val, max=max_val)
+    bin_counts = torch.histc(relative_diff, bins=bins, min=min_val, max=max_val)
 
-    # 计算每个桶的边界值（用于理解每个桶代表的数值范围）
+    # 计算每个桶的边界值
     bin_edges = torch.linspace(min_val, max_val, bins + 1)
 
-    # 打印统计结果
-    print(f"差值范围: [{min_val:.6f}, {max_val:.6f}]")
+    # 打印统计结果（与 calculate_mae 相同风格）
+    print(f"相对差值范围: [{min_val:.6f}, {max_val:.6f}]")
     print("-" * 50)
-    
     for i in range(bins):
         lower_edge = bin_edges[i].item()
         upper_edge = bin_edges[i+1].item()
         count = bin_counts[i].item()
-        print(f"[{lower_edge:.6f}, {upper_edge:.6f})\t{int(count)} \t {int(count)*100/absolute_diff.numel():.2f}%")
+        print(f"[{lower_edge:.6f}, {upper_edge:.6f})\t{int(count)} \t {int(count)*100/relative_diff.numel():.2f}%")
 
-    # 打印基本的统计信息
-    # print("-" * 50)
-    # print(f"平均值 (MAE): {mae:.6f}")
-    # print(f"最大值: {max_diff:.6f}")
-    # print(f"中位数: {torch.median(absolute_diff).item():.6f}")
-    # print(f"标准差: {torch.std(absolute_diff).item():.6f}")
-    print(f"总样本数: {absolute_diff.numel()}")
-    return mae, max_diff
-    
-def compare_operator_diff(mg_input, mg_output, operator, bins=10):
-    """
-    比较mg_input通过operator后与mg_output之间的差异，
-    并用calculate_mae输出差异统计信息。
-
-    Args:
-        mg_input (torch.Tensor): 输入张量
-        mg_output (torch.Tensor): 理论输出（来自另一路的计算）
-        post_attention_layernorm (nn.Module or callable): 归一化算子
-        bins (int): 统计分桶数
-
-    Returns:
-        mae (float), max_diff (float): 差异的平均绝对值和最大绝对值
-    """
-    with torch.no_grad():
-        hf_output = operator(mg_input.transpose(0, 1))
-        mae, max_diff = calculate_mae(hf_output, mg_output, bins=bins)
-        print(f"{operator} diff: [mae, max_diff]")
-    return mae, max_diff
+    print(f"总样本数: {relative_diff.numel()}")
+    return mean_rel_error, max_rel_error
 
 import sys   
 from functools import wraps
@@ -2463,6 +2440,8 @@ def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer
 
     mae_average, mae_max = calculate_mae(mg_result, mg_output)
     print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+    mae_relative_average, mae_relative_max = calculate_relative_error(mg_result, mg_output)
+    print(f"layer{layer_idx} {operator} relative diff ({mae_relative_average}, {mae_relative_max})")
 
 
 @capture_output_to_file
@@ -2476,7 +2455,9 @@ def compare_operator_in_moe_layer_diff(moe_layer: DeepseekV2MoE, mg_input, mg_ou
     if operator == 'shared_expert':
         mg_result = moe_layer.shared_experts(mg_input)
         mae_average, mae_max = calculate_mae(mg_result, mg_output)
+        mae_relative_average, mae_relative_max = calculate_relative_error(mg_result, mg_output)
         print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+        print(f"layer{layer_idx} {operator} relative diff ({mae_relative_average}, {mae_relative_max})")
 
     elif operator == 'gate':
         # 透传 self_attn 需要的可选参数，统一从 kwargs 获取
@@ -2484,8 +2465,9 @@ def compare_operator_in_moe_layer_diff(moe_layer: DeepseekV2MoE, mg_input, mg_ou
         topk_weight, topk_idx = torch.topk(mg_output, k=moe_layer.gate.top_k, dim=-1)
         mae_idx_average, mae_idx_max = calculate_mae(mg_idx, topk_idx)
         print(f"layer{layer_idx} {operator} idx diff ({mae_idx_average}, {mae_idx_max})")
+
         mae_weight_average, mae_weight_max = calculate_mae(mg_weight, topk_weight)
-        print(f"layer{layer_idx} {operator} weight diff ({mae_weight_average}, {mae_weight_max})")
+        print(f"layer{layer_idx} {operator} relative diff ({mae_weight_average}, {mae_weight_max})")
         
 
     elif operator == 'expert':
@@ -2497,5 +2479,9 @@ def compare_operator_in_moe_layer_diff(moe_layer: DeepseekV2MoE, mg_input, mg_ou
         
         mae_average, mae_max = calculate_mae(mg_result, mg_output)
         print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+
+        mae_relative_average, mae_relative_max = calculate_relative_error(mg_result, mg_output)
+        print(f"layer{layer_idx} {operator} relative diff ({mae_relative_average}, {mae_relative_max})")
+
     else:
         raise ValueError(f"Unsupported operator: {operator}")
