@@ -730,9 +730,6 @@ class MoEGate(nn.Module):
         init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
     def forward(self, hidden_states):
-        mg_gate_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_input')
-        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'gate_input')
-            
         bsz, seq_len, h = hidden_states.shape
         ### compute gating score
         hidden_states = hidden_states.view(-1, h)
@@ -818,11 +815,7 @@ class MoEGate(nn.Module):
                 aux_loss = (Pi * fi).sum() * self.alpha
         else:
             aux_loss = None
-        # (mg_scores) shape ([seqlen, experts_num])
-        mg_gate_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_output')
-        if mg_gate_output is not None:
-            mg_idx, mg_weight = torch.topk(mg_gate_output, k=7, dim=-1)
-        save_if(needs_save(hidden_states), (topk_idx, topk_weight), self.layer_idx, 'gate_output')
+
         return topk_idx, topk_weight, aux_loss
 
 
@@ -900,7 +893,18 @@ class DeepseekV2MoE(nn.Module):
         save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'moe_input')
         identity = hidden_states
         orig_shape = hidden_states.shape
+
+        mg_gate_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_input')
+        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'gate_input')
+
         topk_idx, topk_weight, aux_loss = self.gate(hidden_states)
+
+        # (mg_scores) shape ([seqlen, experts_num])
+        mg_gate_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_output')
+        if mg_gate_output is not None:
+            mg_idx, mg_weight = torch.topk(mg_gate_output, k=7, dim=-1)
+        save_if(needs_save(hidden_states), (topk_idx, topk_weight), self.layer_idx, 'gate_output')
+
         hidden_states = hidden_states.view(-1, hidden_states.shape[-1])
         flat_topk_idx = topk_idx.view(-1)
         if self.training:
@@ -930,6 +934,11 @@ class DeepseekV2MoE(nn.Module):
             y = y + self.shared_experts(identity)
         mg_moe_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'moe_output')
         save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'moe_output')
+
+        if self.layer_idx < 20 and needs_compare_moe_operator_diff():
+            compare_operator_in_moe_layer_diff(self, mg_gate_input, mg_gate_output, "gate")
+            compare_operator_in_moe_layer_diff(self, mg_expert_input, mg_expert_output, "expert")
+            compare_operator_in_moe_layer_diff(self, mg_share_expert_input, mg_share_expert_output, "shared_expert")
         return y
 
     @torch.no_grad()
@@ -1674,7 +1683,10 @@ class DeepseekV2DecoderLayer(nn.Module):
             )
         import os 
         cur_path=os.getcwd()
-        ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
+        if os.getenv("SAVE_PT", '0') == "1":
+            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/hf-021/"
+        else:
+            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
         os.makedirs(ckpt_dir, exist_ok=True)
         os.chdir(ckpt_dir)
         if needs_compare_layer_operator_diff() or needs_compare_moe_operator_diff():
@@ -2451,3 +2463,39 @@ def compare_operator_in_decoder_layer_diff(decoder_layer: DeepseekV2DecoderLayer
 
     mae_average, mae_max = calculate_mae(mg_result, mg_output)
     print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+
+
+@capture_output_to_file
+def compare_operator_in_moe_layer_diff(moe_layer: DeepseekV2MoE, mg_input, mg_output, operator, kwargs=None):
+    layer_idx = moe_layer.layer_idx
+    if mg_input is None:
+        return 
+    mg_input = mg_input.transpose(0, 1)
+    print(f"compare layer {layer_idx} {operator}")
+
+    if operator == 'shared_expert':
+        mg_result = moe_layer.shared_experts(mg_input)
+        mae_average, mae_max = calculate_mae(mg_result, mg_output)
+        print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+
+    elif operator == 'gate':
+        # 透传 self_attn 需要的可选参数，统一从 kwargs 获取
+        mg_idx, mg_weight, mg_loss = moe_layer.gate(mg_input)
+        topk_weight, topk_idx = torch.topk(mg_output, k=moe_layer.gate.top_k, dim=-1)
+        mae_idx_average, mae_idx_max = calculate_mae(mg_idx, topk_idx)
+        print(f"layer{layer_idx} {operator} idx diff ({mae_idx_average}, {mae_idx_max})")
+        mae_weight_average, mae_weight_max = calculate_mae(mg_weight, topk_weight)
+        print(f"layer{layer_idx} {operator} weight diff ({mae_weight_average}, {mae_weight_max})")
+        
+
+    elif operator == 'expert':
+        # [bs, seqlen, hidden]
+        topk_idx, topk_weight, aux_loss = moe_layer.gate(mg_input)
+        # flat_topk_idx = topk_idx.view(-1)
+        mg_input = mg_input.view(-1, mg_input.shape[-1])
+        mg_result = moe_layer.moe_infer(mg_input, topk_idx, topk_weight)
+        
+        mae_average, mae_max = calculate_mae(mg_result, mg_output)
+        print(f"layer{layer_idx} {operator} diff ({mae_average}, {mae_max})")
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")
