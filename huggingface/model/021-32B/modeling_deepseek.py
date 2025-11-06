@@ -1099,12 +1099,12 @@ class DeepseekV2Attention(nn.Module):
         self._init_rope()
 
         self.softmax_scale = self.q_head_dim ** (-0.5)
-        if self.config.rope_scaling is not None:
-            mscale_all_dim = self.config.rope_scaling.get("mscale_all_dim", 0)
-            scaling_factor = self.config.rope_scaling["factor"]
-            if mscale_all_dim:
-                mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
-                self.softmax_scale = self.softmax_scale * mscale * mscale
+        # if self.config.rope_scaling is not None:
+        #     mscale_all_dim = self.config.rope_scaling.get("mscale_all_dim", 0)
+        #     scaling_factor = self.config.rope_scaling["factor"]
+        #     if mscale_all_dim:
+        #         mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+        #         self.softmax_scale = self.softmax_scale * mscale * mscale
 
     def _init_rope(self):
         if self.config.rope_scaling is None:
@@ -1181,29 +1181,40 @@ class DeepseekV2Attention(nn.Module):
         # save_if(True, self.kv_a_proj_with_mqa.weight, self.layer_idx, 'kv_a_proj_with_mqa_weight')
         # save_if(True, self.kv_b_proj.weight, self.layer_idx, 'kv_b_proj_weight')
         # save_if(True, self.o_proj.weight, self.layer_idx, 'o_proj_weight')
+
+        mg_attn_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'attn_input')
+        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'attn_input')
+
         
         bsz, q_len, _ = hidden_states.size()
 
         if self.q_lora_rank is None:
             q = self.q_proj(hidden_states)
         else:
+            # ([1, 5, 6144])
             q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
+        # # ([1, 32, 5, 192])
         q = q.view(bsz, q_len, self.num_heads, self.q_head_dim).transpose(1, 2)
+        # (torch.Size([1, 32, 5, 128]), torch.Size([1, 32, 5, 64]))
         q_nope, q_pe = torch.split(
             q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
         )
-
+        
+        # ([1, 5, 576])
         compressed_kv = self.kv_a_proj_with_mqa(hidden_states)
+        # ([1, 5, 512]),  ([1, 5, 64])
         compressed_kv, k_pe = torch.split(
             compressed_kv, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1
         )
+        # ([1, 1, 5, 64])
         k_pe = k_pe.view(bsz, q_len, 1, self.qk_rope_head_dim).transpose(1, 2)
+        # ([1, 32, 5, 256])
         kv = (
             self.kv_b_proj(self.kv_a_layernorm(compressed_kv))
             .view(bsz, q_len, self.num_heads, self.qk_nope_head_dim + self.v_head_dim)
             .transpose(1, 2)
         )
-
+        # ([1, 32, 5, 128]), ([1, 32, 5, 128])
         k_nope, value_states = torch.split(
             kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1
         )
@@ -1216,10 +1227,11 @@ class DeepseekV2Attention(nn.Module):
                     "with a layer index."
                 )
             kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+        # (torch.Size([5, 64]), torch.Size([5, 64]))
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-
+        # (torch.Size([1, 32, 5, 64]), torch.Size([1, 1, 5, 64]))
         q_pe, k_pe = apply_rotary_pos_emb(q_pe, k_pe, cos, sin, position_ids)
-
+        # torch.Size([1, 32, 5, 192])
         query_states = k_pe.new_empty(bsz, self.num_heads, q_len, self.q_head_dim)
         query_states[:, :, :, : self.qk_nope_head_dim] = q_nope
         query_states[:, :, :, self.qk_nope_head_dim :] = q_pe
@@ -1232,7 +1244,7 @@ class DeepseekV2Attention(nn.Module):
             key_states, value_states = past_key_value.update(
                 key_states, value_states, self.layer_idx, cache_kwargs
             )
-
+        # torch.Size([1, 32, 5, 5])
         attn_weights = (
             torch.matmul(query_states, key_states.transpose(2, 3)) * self.softmax_scale
         )
@@ -1243,6 +1255,7 @@ class DeepseekV2Attention(nn.Module):
                 f" {attn_weights.size()}"
             )
         assert attention_mask is not None
+        # torch.Size([1, 1, 5, 5]) 上三角
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
                 raise ValueError(
@@ -1251,6 +1264,7 @@ class DeepseekV2Attention(nn.Module):
             attn_weights = attn_weights + attention_mask
 
         # upcast attention to fp32
+        # torch.Size([1, 32, 5, 5])
         attn_weights = nn.functional.softmax(
             attn_weights, dim=-1, dtype=torch.float32
         ).to(query_states.dtype)
@@ -1697,8 +1711,8 @@ class DeepseekV2DecoderLayer(nn.Module):
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'input')
 
         hidden_states = self.input_layernorm(hidden_states)
-        mg_attn_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_input')
-        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
+        # mg_attn_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_input')
+        # save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
