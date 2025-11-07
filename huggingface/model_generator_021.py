@@ -1,6 +1,42 @@
 import torch
 import torch_musa
+import argparse
+import os
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
+
+# 解析命令行参数
+def parse_args():
+    parser = argparse.ArgumentParser(description='模型生成器脚本')
+    parser.add_argument('-d', '--debug', action='store_true', 
+                        help='启用调试模式（对应DEBUG环境变量）')
+    parser.add_argument('-s', '--save-pt', action='store_true',
+                        help='启用保存PT文件（对应SAVE_PT环境变量）')
+    parser.add_argument('-l', '--load-pt', action='store_true',
+                        help='启用加载PT文件（对应LOAD_PT环境变量）')
+    parser.add_argument('--use-mg', action='store_true',
+                        help='使用MG模式（对应USE_MG环境变量）')
+    parser.add_argument('--layer-diff', action='store_true',
+                        help='启用层级操作差异对比（对应LAYER_OP_DIFF环境变量）')
+    parser.add_argument('--moe-diff', action='store_true',
+                        help='启用MoE操作差异对比（对应MOE_OP_DIFF环境变量）')
+    return parser.parse_args()
+
+# 解析命令行参数
+args = parse_args()
+
+# 根据命令行参数设置环境变量
+if args.debug:
+    os.environ['DEBUG'] = '1'
+if args.save_pt:
+    os.environ['SAVE_PT'] = '1'
+if args.load_pt:
+    os.environ['LOAD_PT'] = '1'
+if args.use_mg:
+    os.environ['USE_MG'] = '1'
+if args.layer_diff:
+    os.environ['LAYER_OP_DIFF'] = '1'
+if args.moe_diff:
+    os.environ['MOE_OP_DIFF'] = '1'
 
 # 设置模型路径
 # model_path = "/mnt/self-define/songquanheng/output-Llama3_1-8b-sft/checkpoint/mcore-llama3-1-8B-sft-iter3000"
@@ -8,6 +44,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf_new honghogn转换检查点
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf 
 model_path = "/mnt/seed-program-nas/001688/songquanheng/model/iter_0050000_hf_new"
+# model_path = "/mnt/seed-program-nas/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0025000_hf_new"
 # 加载分词器和模型
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 try:
@@ -41,7 +78,7 @@ generation_config.top_p = 0
 # 定义 prompts 列表
 prompts = [
     "who are you?",
-    # "what is the result of 1+1?"
+    # "what is the result of 1+1?",
     # "写一首关于夏天海边风景的短诗。",
     # "小王有5个苹果，给了小李2个，还剩多少？",
     # "请将下面的英文翻译成中文：‘Deep learning models require large amounts of data.’",
@@ -53,10 +90,7 @@ prompts = [
     # "Once upon a time, there was a mysterious island where strange creatures lived. Continue the story..."
 ]
 
-
-
-
-import os
+# 检查调试模式（现在通过命令行参数设置）
 if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
     import debugpy
     try:
@@ -89,11 +123,11 @@ for i, prompt in enumerate(prompts):
     with torch.no_grad():  # 禁用梯度计算以节省内存
         outputs = model.generate(
             **inputs,
-            max_new_tokens=16,  # 控制新生成 token 的数量
+            max_new_tokens=512,  # 控制新生成 token 的数量
             num_return_sequences=1,
             generation_config=generation_config,  # 传入生成配置
             pad_token_id=tokenizer.pad_token_id,  # 明确指定 pad_token_id
-            use_cache = False
+            use_cache = True
         )
     
     # 解码生成结果

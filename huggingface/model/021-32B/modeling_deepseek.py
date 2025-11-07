@@ -1183,16 +1183,20 @@ class DeepseekV2Attention(nn.Module):
         # save_if(True, self.o_proj.weight, self.layer_idx, 'o_proj_weight')
 
         mg_attn_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'attn_input')
-        save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'attn_input')
-
         
         bsz, q_len, _ = hidden_states.size()
 
         if self.q_lora_rank is None:
             q = self.q_proj(hidden_states)
         else:
+            save_if(needs_save(hidden_states), self.q_a_proj(hidden_states), self.layer_idx, "q_down_output")
+            mg_q_down_output = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "q_down_output"))
+
             # ([1, 5, 6144])
             q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
+            save_if(needs_save(hidden_states), self.q_a_proj(hidden_states), self.layer_idx, "q_up_output")
+            mg_q_down_output = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "q_up_output"))
+
         # # ([1, 32, 5, 192])
         q = q.view(bsz, q_len, self.num_heads, self.q_head_dim).transpose(1, 2)
         # (torch.Size([1, 32, 5, 128]), torch.Size([1, 32, 5, 64]))
@@ -1202,6 +1206,8 @@ class DeepseekV2Attention(nn.Module):
         
         # ([1, 5, 576])
         compressed_kv = self.kv_a_proj_with_mqa(hidden_states)
+        save_if(needs_save(hidden_states), compressed_kv, self.layer_idx, "kv_down_output")
+        mg_kv_down_output = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "kv_down_output"))
         # ([1, 5, 512]),  ([1, 5, 64])
         compressed_kv, k_pe = torch.split(
             compressed_kv, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1
@@ -1214,6 +1220,9 @@ class DeepseekV2Attention(nn.Module):
             .view(bsz, q_len, self.num_heads, self.qk_nope_head_dim + self.v_head_dim)
             .transpose(1, 2)
         )
+
+        save_if(needs_save(hidden_states), kv, self.layer_idx, "kv_up_output")
+        mg_kv_up_output = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "kv_up_output"))
         # ([1, 32, 5, 128]), ([1, 32, 5, 128])
         k_nope, value_states = torch.split(
             kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1
@@ -1245,9 +1254,17 @@ class DeepseekV2Attention(nn.Module):
                 key_states, value_states, self.layer_idx, cache_kwargs
             )
         # torch.Size([1, 32, 5, 5])
+
+        save_if(needs_save(hidden_states), query_states, self.layer_idx, "q")
+        mg_q = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "q"))
+
+        save_if(needs_save(hidden_states), key_states, self.layer_idx, "k")
+        mg_k = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "k"))
         attn_weights = (
             torch.matmul(query_states, key_states.transpose(2, 3)) * self.softmax_scale
         )
+
+        
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
@@ -1271,6 +1288,9 @@ class DeepseekV2Attention(nn.Module):
         attn_weights = nn.functional.dropout(
             attn_weights, p=self.attention_dropout, training=self.training
         )
+        save_if(needs_save(hidden_states), attn_weights, self.layer_idx, "attn_output_before_o_proj")
+        mg_attn_output_before_o_proj = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "attn_output_before_o_proj"))
+
         attn_output = torch.matmul(attn_weights, value_states)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.v_head_dim):
@@ -1283,8 +1303,15 @@ class DeepseekV2Attention(nn.Module):
 
         attn_output = attn_output.reshape(bsz, q_len, self.num_heads * self.v_head_dim)
 
+        
+        save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_before_o_proj")
+        mg_attn_output_before_o_proj = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "attn_output_before_o_proj"))
+
         attn_output = self.o_proj(attn_output)
 
+        save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_after_o_proj")
+        mg_attn_output_after_o_proj = load_if(needs_load(hidden_states), mg_name_creator(self.layer_idx, "attn_output_after_o_proj"))
+        
         if not output_attentions:
             attn_weights = None
 
@@ -1677,9 +1704,9 @@ class DeepseekV2DecoderLayer(nn.Module):
         import os 
         cur_path=os.getcwd()
         if os.getenv("SAVE_PT", '0') == "1":
-            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/hf-021/"
+            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021"
         else:
-            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
+            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_hf_021')
         os.makedirs(ckpt_dir, exist_ok=True)
         os.chdir(ckpt_dir)
         if needs_compare_layer_operator_diff() or needs_compare_moe_operator_diff():
