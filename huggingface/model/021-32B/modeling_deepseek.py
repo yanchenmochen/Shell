@@ -484,11 +484,11 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
     cos = cos[position_ids].unsqueeze(unsqueeze_dim)
     sin = sin[position_ids].unsqueeze(unsqueeze_dim)
 
-    b, h, s, d = q.shape
-    q = q.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
+    # b, h, s, d = q.shape
+    # q = q.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
-    b, h, s, d = k.shape
-    k = k.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
+    # b, h, s, d = k.shape
+    # k = k.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
@@ -1711,8 +1711,8 @@ class DeepseekV2DecoderLayer(nn.Module):
         save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'input')
 
         hidden_states = self.input_layernorm(hidden_states)
-        # mg_attn_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_input')
-        # save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
+        mg_attn_input = load_if(needs_load(hidden_states, self.self_attn.layer_idx), self.self_attn.layer_idx, 'attn_input')
+        save_if(needs_save(hidden_states), hidden_states, self.self_attn.layer_idx, 'attn_input')
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
