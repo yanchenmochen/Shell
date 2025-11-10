@@ -1704,9 +1704,7 @@ class DeepseekV2DecoderLayer(nn.Module):
         import os 
         cur_path=os.getcwd()
         if os.getenv("SAVE_PT", '0') == "1":
-            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021"
-        else:
-            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_hf_021')
+            ckpt_dir=os.getenv('ckpt_dir', "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021")
         os.makedirs(ckpt_dir, exist_ok=True)
         os.chdir(ckpt_dir)
         if needs_compare_layer_operator_diff() or needs_compare_moe_operator_diff():
