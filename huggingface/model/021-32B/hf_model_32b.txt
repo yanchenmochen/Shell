@@ -1,0 +1,60 @@
+DeepseekV2ForCausalLM(
+  (model): DeepseekV2Model(
+    (embed_tokens): Embedding(128256, 2048)
+    (layers): ModuleList(
+      (0): DeepseekV2DecoderLayer(
+        (self_attn): DeepseekV2Attention(
+          (q_a_proj): Linear(in_features=2048, out_features=1536, bias=False)
+          (q_a_layernorm): DeepseekV2RMSNorm()
+          (q_b_proj): Linear(in_features=1536, out_features=6144, bias=False)
+          (kv_a_proj_with_mqa): Linear(in_features=2048, out_features=576, bias=False)
+          (kv_a_layernorm): DeepseekV2RMSNorm()
+          (kv_b_proj): Linear(in_features=512, out_features=8192, bias=False)
+          (o_proj): Linear(in_features=4096, out_features=2048, bias=False)
+          (rotary_emb): DeepseekV2YarnRotaryEmbedding()
+        )
+        (mlp): DeepseekV2MLP(
+          (gate_proj): Linear(in_features=2048, out_features=12288, bias=False)
+          (up_proj): Linear(in_features=2048, out_features=12288, bias=False)
+          (down_proj): Linear(in_features=12288, out_features=2048, bias=False)
+          (act_fn): SiLU()
+        )
+        (input_layernorm): DeepseekV2RMSNorm()
+        (post_attention_layernorm): DeepseekV2RMSNorm()
+      )
+      (1-39): 39 x DeepseekV2DecoderLayer(
+        (self_attn): DeepseekV2Attention(
+          (q_a_proj): Linear(in_features=2048, out_features=1536, bias=False)
+          (q_a_layernorm): DeepseekV2RMSNorm()
+          (q_b_proj): Linear(in_features=1536, out_features=6144, bias=False)
+          (kv_a_proj_with_mqa): Linear(in_features=2048, out_features=576, bias=False)
+          (kv_a_layernorm): DeepseekV2RMSNorm()
+          (kv_b_proj): Linear(in_features=512, out_features=8192, bias=False)
+          (o_proj): Linear(in_features=4096, out_features=2048, bias=False)
+          (rotary_emb): DeepseekV2YarnRotaryEmbedding()
+        )
+        (mlp): DeepseekV2MoE(
+          (experts): ModuleList(
+            (0-79): 80 x DeepseekV2MLP(
+              (gate_proj): Linear(in_features=2048, out_features=1536, bias=False)
+              (up_proj): Linear(in_features=2048, out_features=1536, bias=False)
+              (down_proj): Linear(in_features=1536, out_features=2048, bias=False)
+              (act_fn): SiLU()
+            )
+          )
+          (gate): MoEGate()
+          (shared_experts): DeepseekV2MLP(
+            (gate_proj): Linear(in_features=2048, out_features=1536, bias=False)
+            (up_proj): Linear(in_features=2048, out_features=1536, bias=False)
+            (down_proj): Linear(in_features=1536, out_features=2048, bias=False)
+            (act_fn): SiLU()
+          )
+        )
+        (input_layernorm): DeepseekV2RMSNorm()
+        (post_attention_layernorm): DeepseekV2RMSNorm()
+      )
+    )
+    (norm): DeepseekV2RMSNorm()
+  )
+  (lm_head): Linear(in_features=2048, out_features=128256, bias=False)
+)

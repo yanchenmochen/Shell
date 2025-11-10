@@ -43,8 +43,8 @@ if args.moe_diff:
 # /mnt/hw-nas/002147/yanjun/data/pretrain/checkpoint/12.8T/tp1_pp2_ep8_mbs2_gbs4800-iter50000-hf 为021-32B转换出来的检查点
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf_new honghogn转换检查点
 # /mnt/seed17/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0050000_hf 
-model_path = "/mnt/seed-program-nas/001688/songquanheng/model/iter_0050000_hf_new"
-# model_path = "/mnt/seed-program-nas/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0025000_hf_new"
+# model_path = "/mnt/seed-program-nas/001688/songquanheng/model/iter_0050000_hf_new"
+model_path = "/mnt/seed-program-nas/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0030000_hf_1107"
 # 加载分词器和模型
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 try:
