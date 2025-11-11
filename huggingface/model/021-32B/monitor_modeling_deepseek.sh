@@ -2,7 +2,7 @@
 # monitor_modeling_deepseek.sh - 监控 modeling_deepseek.py 文件变化并自动拷贝
 
 # 要监控的文件路径
-MONITOR_FILE="/root/.cache/huggingface/modules/transformers_modules/iter_0050000_hf_new/modeling_deepseek.py"
+MONITOR_FILE="/root/.cache/huggingface/modules/transformers_modules/iter_0030000_hf_1107/modeling_deepseek.py"
 
 # 目标目录1
 TARGET_DIR1="/mnt/seed-program-nas/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0030000_hf_1107"

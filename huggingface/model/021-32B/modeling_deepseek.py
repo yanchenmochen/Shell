@@ -1182,7 +1182,6 @@ class DeepseekV2Attention(nn.Module):
         # save_if(True, self.kv_b_proj.weight, self.layer_idx, 'kv_b_proj_weight')
         # save_if(True, self.o_proj.weight, self.layer_idx, 'o_proj_weight')
         # ([5, 1, 2048])
-
         mg_attn_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'attn_input')
         
         bsz, q_len, _ = hidden_states.size()
@@ -1191,12 +1190,14 @@ class DeepseekV2Attention(nn.Module):
             q = self.q_proj(hidden_states)
         else:
             # torch.Size([1, 5, 1536])
-            # save_if(needs_save(hidden_states), self.q_a_proj(hidden_states), self.layer_idx, "q_down_output")
-            # mg_q_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_down_output")
+            save_if(needs_save(hidden_states), self.q_a_proj(hidden_states), self.layer_idx, "q_down_output")
+            # torch.Size([5, 1, 1536])
+            mg_q_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_down_output")
 
-            # ([1, 5, 6144])
+            # q: ([1, 5, 6144]) self.q_a_proj(hidden_states): torch.Size([1, 5, 1536])
             q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
             save_if(needs_save(hidden_states), q, self.layer_idx, "q_up_output")
+            # torch.Size([5, 1, 32, 192])
             mg_q_up_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_up_output")
 
         # # ([1, 32, 5, 192])
@@ -1224,6 +1225,7 @@ class DeepseekV2Attention(nn.Module):
         )
 
         save_if(needs_save(hidden_states), kv, self.layer_idx, "kv_up_output")
+        # torch.Size([5, 1, 32, 256])
         mg_kv_up_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "kv_up_output")
         # ([1, 32, 5, 128]), ([1, 32, 5, 128])
         k_nope, value_states = torch.split(
@@ -1258,11 +1260,13 @@ class DeepseekV2Attention(nn.Module):
             )
         # torch.Size([1, 32, 5, 5])
 
-        save_if(needs_save(hidden_states), query_states, self.layer_idx, "q")
-        mg_q = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q")
+        save_if(needs_save(hidden_states), query_states, self.layer_idx, "query")
+        # torch.Size([5, 1, 32, 192])
+        mg_query = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "query")
 
-        save_if(needs_save(hidden_states), key_states, self.layer_idx, "k")
-        mg_k = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "k")
+        save_if(needs_save(hidden_states), key_states, self.layer_idx, "key")
+        # torch.Size([5, 1, 32, 192])
+        mg_key = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "key")
         # torch.Size([1, 32, 5, 5])
         attn_weights = (
             torch.matmul(query_states, key_states.transpose(2, 3)) * self.softmax_scale
@@ -1290,8 +1294,10 @@ class DeepseekV2Attention(nn.Module):
         attn_weights = nn.functional.dropout(
             attn_weights, p=self.attention_dropout, training=self.training
         )
-        save_if(needs_save(hidden_states), attn_weights, self.layer_idx, "attn_output_before_o_proj")
-        mg_attn_output_before_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_before_o_proj")
+
+        save_if(needs_save(hidden_states), value_states, self.layer_idx, "value")
+        # torch.Size([5, 1, 32, 128])
+        mg_value = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "value")
         # torch.Size([1, 32, 5, 128])
         attn_output = torch.matmul(attn_weights, value_states)
 
@@ -1307,11 +1313,13 @@ class DeepseekV2Attention(nn.Module):
 
         
         save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_before_o_proj")
+        # torch.Size([5, 1, 4096])
         mg_attn_output_before_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_before_o_proj")
         # torch.Size([1, 5, 2048])
         attn_output = self.o_proj(attn_output)
 
         save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_after_o_proj")
+        # torch.Size([5, 1, 2048])
         mg_attn_output_after_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_after_o_proj")
         
         if not output_attentions:
