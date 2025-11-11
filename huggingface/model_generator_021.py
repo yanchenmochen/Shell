@@ -32,6 +32,7 @@ if args.save_pt:
     os.environ['ckpt_dir'] = '/mnt/seed-program-nas/001688/dongjie/X10000-1029/Megatron-LM/examples/inference/moe32b/output_mg_021'
 if args.load_pt:
     os.environ['LOAD_PT'] = '1'
+    os.environ['ckpt_dir'] = '/mnt/seed-program-nas/001688/dongjie/X10000-1029/Megatron-LM/examples/inference/moe32b/output_mg_021'
 if args.use_mg:
     os.environ['USE_MG'] = '1'
 if args.layer_diff:
