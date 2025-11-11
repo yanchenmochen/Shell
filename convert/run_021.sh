@@ -39,7 +39,7 @@
 #/mnt/seed17/001688/checkpoint/021_32B/model_checkpoints_convertor/deepseek/021-32b \
 #/mnt/seed17/001688/checkpoint/021_32B/zjllm-llama3-tokenizer
 
-bash hf2mcore_deepseek_v2_moe_converter_021_30000.sh \
+bash hf2mcore_deepseek_v2_moe_converter_021.sh \
 32B \
 /mnt/seed-program-nas/001688/songquanheng/model/megatron014/ \
 /mnt/seed-program-nas/001688/honghong/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/moe32b/iter_0030000_hf_1110 \
