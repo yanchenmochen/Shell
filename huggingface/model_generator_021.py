@@ -125,7 +125,7 @@ for i, prompt in enumerate(prompts):
     with torch.no_grad():  # 禁用梯度计算以节省内存
         outputs = model.generate(
             **inputs,
-            max_new_tokens=512,  # 控制新生成 token 的数量
+            max_new_tokens=64,  # 控制新生成 token 的数量
             num_return_sequences=1,
             generation_config=generation_config,  # 传入生成配置
             pad_token_id=tokenizer.pad_token_id,  # 明确指定 pad_token_id

@@ -1210,6 +1210,7 @@ class DeepseekV2Attention(nn.Module):
         # ([1, 5, 576])
         compressed_kv = self.kv_a_proj_with_mqa(hidden_states)
         save_if(needs_save(hidden_states), compressed_kv, self.layer_idx, "kv_down_output")
+        # torch.Size([5, 1, 576])
         mg_kv_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "kv_down_output")
         # ([1, 5, 512]),  ([1, 5, 64])
         compressed_kv, k_pe = torch.split(
