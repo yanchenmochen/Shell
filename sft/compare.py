@@ -9,7 +9,8 @@ except Exception:
 # /mnt/self-define/dongjie/model/Pai-Megatron-Patch/Megatron-LM-241113/examples/inference/gpt/output_hidden_states
 # /mnt/self-define/dongjie/model/Pai-Megatron-Patch-0923/Pai-Megatron-Patch/backends/megatron/Megatron-LM-241113/examples/inference/output_mg_bak
 # /mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021 02132b
-os.chdir('/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
+# os.chdir('/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021')
+os.chdir('/mnt/seed-program-nas/001688/dongjie/X10000-1029/Megatron-LM/examples/inference/moe32b/output_mg_021') # 021 32b megatron 0.14
 device = torch.device('muda:0' if torch.cuda.is_available() else 'cpu')
 
 
