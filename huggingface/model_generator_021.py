@@ -29,7 +29,7 @@ if args.debug:
     os.environ['DEBUG'] = '1'
 if args.save_pt:
     os.environ['SAVE_PT'] = '1'
-    os.environ['ckpt_dir'] = '/mnt/seed-program-nas/001688/dongjie/X10000-1029/Megatron-LM/examples/inference/moe16b/output_hf_021'
+    os.environ['ckpt_dir'] = '/mnt/seed-program-nas/001688/dongjie/X10000-1029/Megatron-LM/examples/inference/moe32b/output_mg_021'
 if args.load_pt:
     os.environ['LOAD_PT'] = '1'
 if args.use_mg:
