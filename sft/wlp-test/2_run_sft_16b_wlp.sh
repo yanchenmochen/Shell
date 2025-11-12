@@ -345,6 +345,7 @@ EVAL_AND_LOGGING_ARGS=(
 
   --no-load-optim
   --no-load-rng
+  --dataloader-type external
 
 )
 if [ $TIMER_PRINT = true ]; then
