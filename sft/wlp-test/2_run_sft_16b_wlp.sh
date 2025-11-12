@@ -233,7 +233,7 @@ TRAINING_ARGS=(
   --seed 1234
   --micro-batch-size $MICRO_BATCH_SIZE
   --global-batch-size $GLOBAL_BATCH_SIZE
-  --rampup-batch-size 1200 1200 54931640
+#  --rampup-batch-size 1200 1200 54931640
   --train-samples $TRAIN_SAMPLES
   --init-method-std 0.006 # 0.02 in HF config, but 0.006 in the paper
   --use-mcore-models
