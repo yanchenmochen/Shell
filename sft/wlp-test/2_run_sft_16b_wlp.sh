@@ -75,7 +75,7 @@ fi
 TRAIN_SAMPLES=${TRAIN_SAMPLES:-139040000}
 WARMUP_STEPS=2000
 WARMUP_SAMPLES=$((WARMUP_STEPS * 1600))
-OUTPUT_DIR=${OUTPUT_DIR:-"./output"}
+OUTPUT_DIR=${OUTPUT_DIR:-"/mnt/seed17/001688/wangluping/output"}
 unset MLFLOW_TRACKING_URI
 
 ###########################
