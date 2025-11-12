@@ -12,7 +12,7 @@ bash run_build_idxmap_sft_dataset_wlp.sh \
 /mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix.jsonl \
 HuggingFaceTokenizer \
 4096 \
-/mnt/self-define/dongjie/model/dataset/tulu3/data/tulu-3-sft-mixture/tulu_v3_mix \
+/mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer \
 /mnt/moer-train/public/models/zjllm-llama3-tokenizer
 
 #/mnt/self-define/dongjie/model/dataset/tulu3/data/tulu-3-sft-mixture/tulu_v3_mix.jsonl
