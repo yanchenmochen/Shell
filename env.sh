@@ -41,4 +41,5 @@ alias cache="cd /root/.cache/huggingface/modules/transformers_modules/iter_00500
 export model_home="$([ -d /mnt/common/public/model ] && echo /mnt/common/public/model || echo /public/model)"
 alias model="cd $model_home"
 alias mcore='cd /mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference'
+alias huggingface='cd /mnt/seed-program-nas/001688/songquanheng/Shell/huggingface'
 alias log-dir='cd /mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021'
