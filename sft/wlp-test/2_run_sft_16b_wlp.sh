@@ -32,8 +32,8 @@ export MUSA_EXECUTION_TIMEOUT=20000000
 export MUSA_BLOCK_DISTRIBUTION_GRANULARITY=0
 export MUSA_LOG=0x1
 
-MEGATRON_PATH=/mnt/seed17/001688/wangluping/Shell/sft/Megatron-LM_sft
-MEGATRON_MUSA_PATH=/mnt/seed17/001688/wangluping/Shell/sft/megatron-lm-musa-patch_1024
+MEGATRON_PATH=/mnt/seed17/001688/wangluping/Shell/sft/Megatron-LM_kuae_1022
+MEGATRON_MUSA_PATH=/mnt/seed17/001688/wangluping/Shell/sft/megatron-lm-musa-patch_kuae_1022
 
 export PYTHONPATH=${MEGATRON_PATH}:${MEGATRON_MUSA_PATH}:$PYTHONPATH
 export LD_LIBRARY_PATH=/usr/local/openmpi/lib:/usr/local/musa/lib:${LD_LIBRARY_PATH}
