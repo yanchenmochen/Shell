@@ -9,8 +9,12 @@
 cd /mnt/seed17/001688/wangluping/zjlab-megatron/pai_megatron_patch/toolkits/sft_data_preprocessing
 
 bash run_build_idxmap_sft_dataset_wlp.sh \
-/mnt/seed17/001688/wangluping/test-data/qwen_sft.json \
+/mnt/self-define/dongjie/model/dataset/tulu3/data/tulu-3-sft-mixture/tulu_v3_mix.jsonl \
 HuggingFaceTokenizer \
 4096 \
-/mnt/seed17/001688/wangluping/test-data/qwen_sft \
+/mnt/self-define/dongjie/model/dataset/tulu3/data/tulu-3-sft-mixture/tulu_v3_mix \
 /mnt/moer-train/public/models/zjllm-llama3-tokenizer
+
+#/mnt/self-define/dongjie/model/dataset/tulu3/data/tulu-3-sft-mixture/tulu_v3_mix.jsonl
+#/mnt/seed17/001688/wangluping/test-data/qwen_sft.json \
+
