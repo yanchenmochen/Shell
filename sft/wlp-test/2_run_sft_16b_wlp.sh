@@ -280,7 +280,7 @@ LEARNING_RATE_ARGS=(
   --lr 4.2e-4
   --lr-decay-style cosine
   --lr-wsd-decay-style exponential
-  --lr-warmup-samples 128
+  --lr-warmup-samples 2400000
   --min-lr 4.2e-05
   --initial-loss-scale 65536
   --min-loss-scale 1.0
