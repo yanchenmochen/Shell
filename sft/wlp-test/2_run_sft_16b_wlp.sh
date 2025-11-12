@@ -72,7 +72,7 @@ if [[ -z ${SEEN_STEPS} ]]; then
   SEEN_STEPS=0
 fi
 
-TRAIN_SAMPLES=${TRAIN_SAMPLES:-10000}
+TRAIN_SAMPLES=${TRAIN_SAMPLES:-1000000}
 WARMUP_STEPS=2000
 WARMUP_SAMPLES=$((WARMUP_STEPS * 1600))
 OUTPUT_DIR=${OUTPUT_DIR:-"./output"}
@@ -345,7 +345,8 @@ EVAL_AND_LOGGING_ARGS=(
 
   --no-load-optim
   --no-load-rng
-  --dataloader-type external
+#  --dataloader-type external
+  --dataloader-type cyclic
 )
 if [ $TIMER_PRINT = true ]; then
   MEGATRON_LOGGING_ARGS=(
