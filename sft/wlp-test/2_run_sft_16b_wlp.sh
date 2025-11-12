@@ -60,7 +60,7 @@ echo "Using MUSA backend"
 
 ROUTER_DTYPE=${ROUTER_DTYPE:-fp32}
 MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-1}
-GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-128}
+GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-1200}
 SEQ_LEN=${SEQ_LEN:-4096}
 
 DATA_PATH=${DATA_PATH:-"/mnt/seed17/001688/wangluping/test-data/qwen_sft_text_document"}
@@ -367,9 +367,9 @@ MOE_ARGS=(
   # --moe-expert-capacity-factor 4
   # --moe-permute-fusion
   # --norm-before-router-softmax
-  --router-prob-var-mointor-freq 10
-  --router-logit-var-mointor-freq 10
-  --router-maxvio-mointor-freq 10
+  # --router-prob-var-mointor-freq 10
+  # --router-logit-var-mointor-freq 10
+  # --router-maxvio-mointor-freq 10
   --moe-router-pre-softmax
   --moe-z-loss-coeff 0.0001
 )
