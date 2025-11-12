@@ -90,7 +90,7 @@ RECOMPUTE_LAYERS=1
 WORLD_SIZE=$((GPUS_PER_NODE * NUM_NODES))
 DP_SIZE=$((WORLD_SIZE / (PP * TP)))
 NODE_RANK=${RANK:-0}
-SAVE_INTERVAL=${SAVE_INTERVAL:-1000}
+SAVE_INTERVAL=${SAVE_INTERVAL:-10000000}
 EXIT_INTERVAL=${EXIT_INTERVAL:-20000000}
 ###########################
 EXPNAME="zj_tp${TP}_pp${PP}_dp${DP_SIZE}_ep${EP}_mbs${MICRO_BATCH_SIZE}_numbs${NUM_MICROBATCHES}_gbs${GLOBAL_BATCH_SIZE}_gpus${WORLD_SIZE}_router${ROUTER_DTYPE}"
@@ -346,7 +346,6 @@ EVAL_AND_LOGGING_ARGS=(
   --no-load-optim
   --no-load-rng
   --dataloader-type external
-
 )
 if [ $TIMER_PRINT = true ]; then
   MEGATRON_LOGGING_ARGS=(
