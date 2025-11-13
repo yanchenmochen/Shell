@@ -408,6 +408,8 @@ fi
 ###### running scripts
 ###########################
 
+pip install datasets
+
 torchrun ${DISTRIBUTED_ARGS[@]} ${MEGATRON_MUSA_PATH}/examples/deepseek-sft/pretrain_deepseekv2.py \
   ${MODEL_ARGS[@]} \
   ${TRAINING_ARGS[@]} \
