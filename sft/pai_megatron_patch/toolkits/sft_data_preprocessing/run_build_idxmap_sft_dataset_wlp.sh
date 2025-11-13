@@ -1,14 +1,6 @@
 #! /bin/bash
 START_TIME=$SECONDS
 
-CURRENT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MEGATRON_PATCH_PATH=$(dirname $(dirname $(dirname ${CURRENT_DIR})))
-
-#export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATCH_PATH}:${MEGATRON_PATCH_PATH}/backends/megatron/PAI-Megatron-LM-240718
-#export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATCH_PATH}:${MEGATRON_PATCH_PATH}/Megatron/Megatron-LM-0.14-1029
-export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATCH_PATH}:/mnt/seed17/001688/wangluping/Shell/sft/Megatron-LM_kuae_1022
-export PYTHONPATH=$PYTHONPATH:/mnt/seed17/001688/wangluping/zjlab-megatron/pai_megatron_patch
-
 input_data_path=$1
 tokenizer=$2
 seq_len=$3

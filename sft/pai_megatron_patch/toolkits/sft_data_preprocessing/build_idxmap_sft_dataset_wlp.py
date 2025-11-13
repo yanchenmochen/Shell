@@ -114,7 +114,7 @@ class Encoder(object):
             doc_ids.extend(all_ids)
             label_ids.extend(y_ids)
             sentence_lens.append(len(all_ids))
-
+            break
         if sum(sentence_lens) > 0:
             # Need Padding
             if self.seq_length > sum(sentence_lens):
