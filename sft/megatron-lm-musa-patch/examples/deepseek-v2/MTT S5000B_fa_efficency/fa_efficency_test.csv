@@ -1,0 +1,13 @@
+model,TP,batch,seq_len,num_heads,head_size,flops,TFLOPS,time,fwd_efficiency,bwd_efficiency
+ds_236b,1,1,4096,"q=128, kv=128","qk=192, v=128","fwd=1374389534720, bwd=3435973836800","fwd=45.13 TFLOPS, bwd=512.69 TFLOPS","fwd=30.45 ms, bwd=6.70 ms",0.11,1.28
+ds_236b,2,1,4096,"q=64, kv=64","qk=96, v=64","fwd=687194767360, bwd=1717986918400","fwd=21.74 TFLOPS, bwd=528.09 TFLOPS","fwd=31.61 ms, bwd=3.25 ms",0.05,1.32
+ds_236b,4,1,4096,"q=32, kv=32","qk=48, v=32","fwd=343597383680, bwd=858993459200","fwd=11.52 TFLOPS, bwd=509.04 TFLOPS","fwd=29.84 ms, bwd=1.69 ms",0.03,1.27
+ds_236b,8,1,4096,"q=16, kv=16","qk=24, v=16","fwd=171798691840, bwd=429496729600","fwd=6.20 TFLOPS, bwd=481.89 TFLOPS","fwd=27.70 ms, bwd=0.89 ms",0.02,1.2
+llama3_8b,1,1,4096,"q=32, kv=8","qk=128, v=128","fwd=274877906944, bwd=687194767360","fwd=9.85 TFLOPS, bwd=522.43 TFLOPS","fwd=27.92 ms, bwd=1.32 ms",0.02,1.3
+llama3_8b,2,1,4096,"q=16, kv=4","qk=64, v=64","fwd=137438953472, bwd=343597383680","fwd=4.95 TFLOPS, bwd=497.91 TFLOPS","fwd=27.79 ms, bwd=0.69 ms",0.01,1.24
+llama3_8b,4,1,4096,"q=8, kv=2","qk=32, v=32","fwd=68719476736, bwd=171798691840","fwd=2.34 TFLOPS, bwd=436.70 TFLOPS","fwd=29.31 ms, bwd=0.39 ms",0.01,1.09
+llama3_8b,8,1,4096,"q=4, kv=1","qk=16, v=16","fwd=34359738368, bwd=85899345920","fwd=1.77 TFLOPS, bwd=321.38 TFLOPS","fwd=19.41 ms, bwd=0.27 ms",0.0,0.8
+llama3_70b,1,1,4096,"q=64, kv=8","qk=128, v=128","fwd=549755813888, bwd=1374389534720","fwd=19.16 TFLOPS, bwd=523.61 TFLOPS","fwd=28.70 ms, bwd=2.62 ms",0.05,1.31
+llama3_70b,2,1,4096,"q=32, kv=4","qk=64, v=64","fwd=274877906944, bwd=687194767360","fwd=9.83 TFLOPS, bwd=502.10 TFLOPS","fwd=27.97 ms, bwd=1.37 ms",0.02,1.25
+llama3_70b,4,1,4096,"q=16, kv=2","qk=32, v=32","fwd=137438953472, bwd=343597383680","fwd=4.97 TFLOPS, bwd=495.12 TFLOPS","fwd=27.66 ms, bwd=0.69 ms",0.01,1.23
+llama3_70b,8,1,4096,"q=8, kv=1","qk=16, v=16","fwd=68719476736, bwd=171798691840","fwd=2.48 TFLOPS, bwd=436.68 TFLOPS","fwd=27.70 ms, bwd=0.39 ms",0.01,1.09

@@ -9,7 +9,7 @@ import torch
 #                                              os.path.pardir)))
 
 import musa_patch
-sys.path.append("/mnt/seed-program-nas/001688/haoran.huang/Megatron-LM_1014")
+sys.path.append("/mnt/seed-program-nas/001688/songquanheng/Shell/sft/Megatron-LM_sft")
 from megatron.training import print_rank_0
 from megatron.core.models.gpt import GPTModel
 from megatron.training.arguments import core_transformer_config_from_args
@@ -169,6 +169,19 @@ def add_text_generate_args(parser):
 
 
 if __name__ == "__main__":
+    import os
+    if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
+        import debugpy
+        try:
+            # 使用异常处理适配多进程代码，这样只有一个进程会监听5678端口
+            debugpy.listen(("localhost", 5678))
+            print("Waiting for debugger attach")
+            debugpy.wait_for_client()
+            print("Debugger attached")
+        except Exception as e:
+            # 如果端口已被占用，忽略异常（可能是其他进程已启动调试）
+            print(e)
+            pass
     initialize_megatron(extra_args_provider=add_text_generate_args,
                         args_defaults={'no_load_rng': True,
                                        'no_load_optim': True,

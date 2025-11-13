@@ -1,0 +1,38 @@
+{
+    "sdp_fwd": {
+        "tflops": 401,
+        "efficient_factor": 0.029080360794853863,
+        "accurate_efficient_factor": {
+            "batch=1, seq_len=4096, head_num=128, kv_head_num=128, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 0.11255360159799907,
+            "batch=1, seq_len=4096, head_num=64, kv_head_num=64, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 0.05422227655785809,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=32, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 0.02871932083763008,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=16, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 0.015465416040838696,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=8, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.024552711519000032,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=4, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.012331762815443209,
+            "batch=1, seq_len=4096, head_num=8, kv_head_num=2, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.0058472209665972365,
+            "batch=1, seq_len=4096, head_num=4, kv_head_num=1, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.0044142343058098206,
+            "batch=1, seq_len=4096, head_num=64, kv_head_num=8, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.04776850028169213,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=4, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.024510086801865418,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=2, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.012391616040687965,
+            "batch=1, seq_len=4096, head_num=8, kv_head_num=1, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.006187581772824555
+        }
+    },
+    "sdp_bwd": {
+        "tflops": 401,
+        "efficient_factor": 1.1985926622294987,
+        "accurate_efficient_factor": {
+            "batch=1, seq_len=4096, head_num=128, kv_head_num=128, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 1.2785369670498252,
+            "batch=1, seq_len=4096, head_num=64, kv_head_num=64, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 1.3169392287388306,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=32, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 1.2694231683837833,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=16, qk_head_dim=192, v_head_dim=128, qkv_contiguous=False": 1.201725050977123,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=8, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.3028098132800963,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=4, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.2416623019560793,
+            "batch=1, seq_len=4096, head_num=8, kv_head_num=2, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.0890150767695839,
+            "batch=1, seq_len=4096, head_num=4, kv_head_num=1, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 0.8014454130825914,
+            "batch=1, seq_len=4096, head_num=64, kv_head_num=8, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.3057511151767442,
+            "batch=1, seq_len=4096, head_num=32, kv_head_num=4, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.2521142929982674,
+            "batch=1, seq_len=4096, head_num=16, kv_head_num=2, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.2347184386252101,
+            "batch=1, seq_len=4096, head_num=8, kv_head_num=1, qk_head_dim=128, v_head_dim=128, qkv_contiguous=False": 1.088971079715851
+        }
+    }
+}

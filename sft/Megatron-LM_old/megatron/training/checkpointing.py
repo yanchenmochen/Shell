@@ -1223,6 +1223,29 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
         **load_kwargs
     )
 
+    def convert_state_dict_v012_to_v014(state_dict):
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            # 跳过 mcore 不需要的 _extra_state
+
+
+            new_k = k
+
+            # kv_layernorm.weight → linear_kv_up_proj.layer_norm_weight
+            if "self_attention.kv_layernorm.weight" in k:
+                new_k = k.replace("self_attention.kv_layernorm.weight",
+                                "self_attention.linear_kv_up_proj.layer_norm_weight")
+
+            # pre_mlp_layernorm.weight → linear_fc1.layer_norm_weight
+            elif "decoder.layers.0.pre_mlp_layernorm.weight" in k:
+                new_k = k.replace("decoder.layers.0.pre_mlp_layernorm.weight",
+                                "decoder.layers.0.mlp.linear_fc1.layer_norm_weight")
+
+            new_state_dict[new_k] = v
+
+        return new_state_dict
+    if getattr(args, "model_name") == "deepseek-v2-lite":
+        state_dict['model'] = convert_state_dict_v012_to_v014(state_dict['model'])
     # Checkpoint not loaded.
     if state_dict is None:
         # Iteration and num_floating_point_operations_so_far default to 0.
@@ -1265,6 +1288,7 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
 
     # Model.
     strict = False if args.retro_add_retriever else strict
+    strict = False
     if not skip_load_to_model_and_opt:
         if len(ddp_model) == 1:
             ddp_model[0].load_state_dict(state_dict['model'], strict=strict)
