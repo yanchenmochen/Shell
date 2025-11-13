@@ -235,7 +235,7 @@ TRAINING_ARGS=(
   --seed 1234
   --micro-batch-size $MICRO_BATCH_SIZE
   --global-batch-size $GLOBAL_BATCH_SIZE
-#  --rampup-batch-size 1200 1200 54931640
+  #  --rampup-batch-size 1200 1200 54931640
   --train-samples $TRAIN_SAMPLES
   --init-method-std 0.006 # 0.02 in HF config, but 0.006 in the paper
   --use-mcore-models
@@ -335,7 +335,7 @@ EVAL_AND_LOGGING_ARGS=(
   --log-timers-to-tensorboard
   --save-interval $SAVE_INTERVAL
   --eval-interval 1
-#  --save $CHECKPOINT_PATH
+  --save $CHECKPOINT_PATH
   --load $CHECKPOINT_LOAD_PATH
   --eval-iters 0
   --tensorboard-dir $TENSORBOARD_PATH
@@ -345,7 +345,7 @@ EVAL_AND_LOGGING_ARGS=(
 
   --no-load-optim
   --no-load-rng
-#  --dataloader-type external
+  #  --dataloader-type external
   --dataloader-type cyclic
 )
 if [ $TIMER_PRINT = true ]; then
