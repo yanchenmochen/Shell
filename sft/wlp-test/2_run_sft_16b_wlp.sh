@@ -262,6 +262,13 @@ TRAINING_ARGS=(
   --rotary-seq-len-interpolation-factor 1
 )
 
+if [ $SFT = true ]; then
+  TRAINING_ARGS+=(
+    --dataset MMAP
+    --train-mode finetune
+  )
+fi
+
 MLA_ARGS=(
   --kv-lora-rank ${KV_LORA_RANK}
   --qk-head-dim ${QK_NOPE_HEAD_DIM}
@@ -386,12 +393,6 @@ if [ "$ROUTER_DTYPE" = "fp32" ] || [ "$ROUTER_DTYPE" = "fp64" ]; then
   MOE_ARGS+=(--moe-router-dtype "$ROUTER_DTYPE")
 fi
 
-if [ $SFT = true ]; then
-  TRAINING_ARGS+=(
-    --dataset MMAP
-    --train-mode finetune
-  )
-fi
 ###########################
 ###### running scripts
 ###########################
