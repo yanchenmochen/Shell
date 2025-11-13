@@ -89,7 +89,7 @@ class Encoder(object):
 
             all_ids = self.tokenizer.apply_chat_template(messages)[:-4]
 
-            print(f'======all_ids decode: {self.tokenizer.detokenize(all_ids)}')
+            print(f'======all_ids decode: {self.tokenizer.detokenize(all_ids[40:])}')
 
             if len(all_ids) >= self.seq_length:
                 print('Extreme long sequence, truncted...')
@@ -118,7 +118,7 @@ class Encoder(object):
                 continue
 
             print(f'======y_ids: {y_ids}')
-            print(f'======y_ids decode: {self.tokenizer.detokenize(y_ids)}')
+            print(f'======y_ids decode: {self.tokenizer.detokenize(y_ids[40:])}')
 
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
                 if self.seq_length > sum(sentence_lens):
