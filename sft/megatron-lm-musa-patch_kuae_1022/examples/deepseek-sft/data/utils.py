@@ -14,6 +14,7 @@
 
 import torch
 from megatron.core import mpu
+
 try:
     from megatron import get_args
 except:
@@ -22,12 +23,13 @@ except:
 # from megatron_patch.tokenizer import get_tokenizer
 from megatron.training import get_tokenizer
 
+
 def get_ltor_masks_and_position_ids(data,
                                     eod_token,
                                     reset_position_ids,
                                     reset_attention_mask,
                                     eod_mask_loss,
-                                    create_attention_mask: bool=True):
+                                    create_attention_mask: bool = True):
     """Build masks and position id for left to right model."""
 
     # Extract batch size and sequence length.
@@ -41,7 +43,7 @@ def get_ltor_masks_and_position_ids(data,
     if create_attention_mask:
         attention_mask = torch.tril(torch.ones(
             (att_mask_batch, seq_length, seq_length), device=data.device)).view(
-                att_mask_batch, 1, seq_length, seq_length)
+            att_mask_batch, 1, seq_length, seq_length)
     else:
         attention_mask = None
 
@@ -86,6 +88,7 @@ def get_ltor_masks_and_position_ids(data,
 
     return attention_mask, loss_mask, position_ids
 
+
 def get_ltor_position_ids_packed_seq(data):
     """
         Given a input_seqs from custom mmap dataset, generate a 
@@ -116,9 +119,11 @@ def get_ltor_position_ids_packed_seq(data):
 
     return position_ids
 
+
 def get_batch_on_this_tp_rank_original(data_iterator, per_seq_average=False):
     args = get_args()
     tokenizer = get_tokenizer()
+
     def _broadcast(item):
         if item is None:
             return
@@ -143,19 +148,19 @@ def get_batch_on_this_tp_rank_original(data_iterator, per_seq_average=False):
         eos_indices = (labels < 0).nonzero()
         labels[labels == tokenizer.pad_token_id] = -100
         labels[eos_indices[:, 0], eos_indices[:, 1]] = - 1 - labels[eos_indices[:, 0], eos_indices[:, 1]]
-        
+
         attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
             labels,
             -100,
             args.reset_position_ids,
             args.reset_attention_mask,
             args.eod_mask_loss)
-        
+
         num_seqs = None
         if per_seq_average:
             # NOTE: raw dataset does not support sequence packing
             num_seqs = torch.ones(position_ids.shape[0], device=torch.cuda.current_device(), dtype=torch.int64)
-            loss_mask = loss_mask / loss_mask.sum(dim=-1, keepdims=True) # [mbs]       
+            loss_mask = loss_mask / loss_mask.sum(dim=-1, keepdims=True)  # [mbs]
 
         batch = {
             'tokens': tokens.cuda(non_blocking=True),
@@ -204,11 +209,11 @@ def get_batch_on_this_tp_rank_original(data_iterator, per_seq_average=False):
                                      device=torch.cuda.current_device())
         position_ids = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.int64,
                                    device=torch.cuda.current_device())
-        
+
         num_seqs = None
         if per_seq_average:
             num_seqs = torch.empty((args.micro_batch_size,), dtype=torch.int64,
-                                    device=torch.cuda.current_device()) 
+                                   device=torch.cuda.current_device())
 
         if args.pipeline_model_parallel_size == 1:
             _broadcast(tokens)
@@ -237,7 +242,7 @@ def get_batch_on_this_tp_rank_original(data_iterator, per_seq_average=False):
             else:
                 tokens = None
                 position_ids = None
-            
+
             _broadcast(labels)
             _broadcast(loss_mask)
             _broadcast(attention_mask)
@@ -254,15 +259,17 @@ def get_batch_on_this_tp_rank_original(data_iterator, per_seq_average=False):
 
     return batch
 
+
 def get_position_id_on_this_tp_rank_idxmap_sft_packing(data_iterator):
     args = get_args()
     tokenizer = get_tokenizer()
+
     def _broadcast(item):
         if item is None:
             return
         torch.distributed.broadcast(item, mpu.get_tensor_model_parallel_src_rank(),
                                     group=mpu.get_tensor_model_parallel_group())
-        
+
     if mpu.get_tensor_model_parallel_rank() == 0:
         if isinstance(data_iterator, dict):
             data = data_iterator
@@ -280,15 +287,17 @@ def get_position_id_on_this_tp_rank_idxmap_sft_packing(data_iterator):
     _broadcast(position_ids)
     return position_ids
 
+
 def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
     args = get_args()
     tokenizer = get_tokenizer()
+
     def _broadcast(item):
         if item is None:
             return
         torch.distributed.broadcast(item, mpu.get_tensor_model_parallel_src_rank(),
                                     group=mpu.get_tensor_model_parallel_group())
-        
+
     if mpu.get_tensor_model_parallel_rank() == 0:
 
         if isinstance(data_iterator, dict):
@@ -303,7 +312,7 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
         tokens = data['tokens'][..., :actual_seqlen]
         labels = data['tokens'][..., actual_seqlen:]
         loss_mask = (labels != -100).float()
-        
+
         if args.reset_position_ids:
             attention_mask = None
             position_ids = get_ltor_position_ids_packed_seq(tokens)
@@ -329,7 +338,7 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
                     start_indices = (p == 0).nonzero(as_tuple=True)[0]
                     seqlens = start_indices[1:] - start_indices[:-1]
                     seqlens = seqlens.cpu().numpy().tolist() + [p.shape[0] - start_indices[-1].item()]
-                    subseqs = torch.split(loss_mask[b], seqlens)    
+                    subseqs = torch.split(loss_mask[b], seqlens)
                     num_seqs[b] = len(seqlens) - int(has_pad[b])
                     for subseq_idx, (start_idx, seqlen, subseq) in enumerate(zip(start_indices, seqlens, subseqs)):
                         if subseq_idx == num_seqs[b]:
@@ -339,12 +348,12 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
                         loss_mask[b, start_idx: start_idx + seqlen] /= subseq.sum()
             else:
                 if loss_mask.sum() > 0:
-                    
-                    loss_mask = loss_mask / loss_mask.sum(dim=-1, keepdims=True) # [mbs]
+
+                    loss_mask = loss_mask / loss_mask.sum(dim=-1, keepdims=True)  # [mbs]
                 else:
-                    loss_mask = torch.ones_like(loss_mask) 
-                
-        # dtype: long, long, float, bool, long
+                    loss_mask = torch.ones_like(loss_mask)
+
+                    # dtype: long, long, float, bool, long
         batch = {
             'tokens': tokens.cuda(non_blocking=True),
             'labels': labels.cuda(non_blocking=True),
@@ -353,7 +362,7 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
             'position_ids': position_ids.cuda(non_blocking=True),
             'num_seqs': num_seqs.cuda(non_blocking=True) if num_seqs is not None else None
         }
-        
+
         if args.pipeline_model_parallel_size == 1:
             _broadcast(batch['tokens'])
             _broadcast(batch['labels'])
@@ -375,7 +384,7 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
             _broadcast(batch['loss_mask'])
             _broadcast(batch['attention_mask'])
             _broadcast(batch['num_seqs'])
-        
+
         _broadcast(batch['position_ids'])
     else:
         # dtype: long, long, float, bool, long
@@ -385,20 +394,20 @@ def get_batch_on_this_tp_rank_idxmap_sft(data_iterator, per_seq_average=False):
                              device=torch.cuda.current_device())
         loss_mask = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.float32,
                                 device=torch.cuda.current_device())
-        
+
         attention_mask = None
         if args.create_attention_mask_in_dataloader:
             mbs = args.micro_batch_size if args.reset_attention_mask else 1
             attention_mask = torch.empty((mbs, 1, args.seq_length, args.seq_length), dtype=torch.bool,
-                                        device=torch.cuda.current_device())
+                                         device=torch.cuda.current_device())
         position_ids = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.int64,
                                    device=torch.cuda.current_device())
 
         num_seqs = None
         if per_seq_average:
             num_seqs = torch.empty((args.micro_batch_size,), dtype=torch.int64,
-                                    device=torch.cuda.current_device()) 
-            
+                                   device=torch.cuda.current_device())
+
         if args.pipeline_model_parallel_size == 1:
             _broadcast(tokens)
             _broadcast(labels)
