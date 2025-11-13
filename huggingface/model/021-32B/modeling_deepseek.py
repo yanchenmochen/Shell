@@ -272,9 +272,14 @@ class DeepseekV2RotaryEmbedding(nn.Module):
         if self.max_seq_len_cached is None or seq_len > self.max_seq_len_cached:
             self._set_cos_sin_cache(seq_len=seq_len, device=x.device, dtype=x.dtype)
 
+        # return (
+        #     self.cos_cached[:seq_len].to(dtype=x.dtype),
+        #     self.sin_cached[:seq_len].to(dtype=x.dtype),
+        # )
+
         return (
-            self.cos_cached[:seq_len].to(dtype=x.dtype),
-            self.sin_cached[:seq_len].to(dtype=x.dtype),
+            self.cos_cached[:seq_len].to(dtype=torch.float32),
+            self.sin_cached[:seq_len].to(dtype=torch.float32),
         )
 
 
@@ -443,12 +448,18 @@ class DeepseekV2YarnRotaryEmbedding(DeepseekV2RotaryEmbedding):
         )
 
         emb = torch.cat((freqs, freqs), dim=-1)
+        # self.register_buffer(
+        #     "cos_cached", (emb.cos() * _mscale).to(dtype), persistent=False
+        # )
+        # self.register_buffer(
+        #     "sin_cached", (emb.sin() * _mscale).to(dtype), persistent=False
+        # )
         self.register_buffer(
-            "cos_cached", (emb.cos() * _mscale).to(dtype), persistent=False
+            "cos_cached", (emb.cos() * _mscale).to(torch.float32), persistent=False
         )
         self.register_buffer(
-            "sin_cached", (emb.sin() * _mscale).to(dtype), persistent=False
-        )
+            "sin_cached", (emb.sin() * _mscale).to(torch.float32), persistent=False
+        )            
 
 
 # Copied from transformers.models.llama.modeling_llama.rotate_half
@@ -457,7 +468,26 @@ def rotate_half(x):
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
     return torch.cat((-x2, x1), dim=-1)
+from torch import Tensor
 
+def _rotate_half(x: Tensor, rotary_interleaved: bool) -> Tensor:
+    """Change sign so the last dimension becomes [-odd, +even]
+
+    Args:
+        x (Tensor): Input tensor
+
+    Returns:
+        Tensor: Tensor rotated half
+    """
+    if not rotary_interleaved:
+        x1, x2 = torch.chunk(x, 2, dim=-1)
+        return torch.cat((-x2, x1), dim=-1)
+    else:
+        x1 = x[:, :, :, ::2]
+        x2 = x[:, :, :, 1::2]
+        x_new = torch.stack((-x2, x1), dim=-1)
+        return x_new.view(x_new.shape[0], x_new.shape[1], x_new.shape[2], -1)
+    
 
 # Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
 def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
@@ -490,9 +520,16 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
     # b, h, s, d = k.shape
     # k = k.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
+    # q_embed = (q * cos) + (rotate_half(q) * sin)
+    # k_embed = (k * cos) + (rotate_half(k) * sin)
+    dtype = q.dtype
+    q, k = q.to(torch.float32), k.to(torch.float32)  # for fp16 stability
+    cos, sin = cos.to(torch.float32), sin.to(torch.float32)  # for fp16 stability
+    # cos, sin = cos.to(q.dtype), sin.to(q.dtype) # bf16
+    
+    q_embed = (q * cos) + (_rotate_half(q, rotary_interleaved=False) * sin)
+    k_embed = (k * cos) + (_rotate_half(k, rotary_interleaved=False) * sin)
+    return q_embed.to(dtype), k_embed.to(dtype)
 
 
 class DeepseekV2MLP(nn.Module):
@@ -739,26 +776,33 @@ class MoEGate(nn.Module):
         logits = F.linear(
             hidden_states, self.weight, None
         )
-        if self.scoring_func == "softmax":
-            scores = logits.softmax(dim=-1, dtype=torch.float32)
-
-        elif self.scoring_func == 'seq_aux_loss':
-            scores, routing_map, tokens_per_expert = topk_softmax_with_capacity(
-            logits,
-            self.top_k,
-            scaling_factor=2.643,
-        )
-         
-        else:
-            raise NotImplementedError(
-                f"insupportable scoring function for MoE gating: {self.scoring_func}"
+        
+        use_pre_softmax = False
+        if use_pre_softmax:
+            if self.scoring_func == "softmax":
+                # scores = logits.softmax(dim=-1, dtype=torch.float32)
+                scores = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits) # megatron
+            elif self.scoring_func == 'seq_aux_loss':
+                scores, routing_map, tokens_per_expert = topk_softmax_with_capacity(
+                logits,
+                self.top_k,
+                scaling_factor=2.643,
             )
-
+            else:
+                raise NotImplementedError(
+                    f"insupportable scoring function for MoE gating: {self.scoring_func}"
+                )
+        
         ### select top-k experts
         if self.topk_method == "greedy":
-            topk_weight, topk_idx = torch.topk(
-                scores, k=self.top_k, dim=-1, sorted=False
-            )
+            if use_pre_softmax:
+                topk_weight, topk_idx = torch.topk(
+                    scores, k=self.top_k, dim=-1, sorted=False
+                )
+            else:
+                topk_weight, topk_idx = torch.topk(
+                    logits, k=self.top_k, dim=1
+                )            
         elif self.topk_method == "group_limited_greedy":
             group_scores = (
                 scores.view(bsz * seq_len, self.n_group, -1).max(dim=-1).values
@@ -781,13 +825,33 @@ class MoEGate(nn.Module):
             topk_weight, topk_idx = torch.topk(
                 tmp_scores, k=self.top_k, dim=-1, sorted=False
             )
-
+        
+        if not use_pre_softmax:
+            if self.scoring_func == "softmax":
+                # scores = logits.softmax(dim=-1, dtype=torch.float32)
+                scores = torch.softmax(topk_weight, dim=-1, dtype=torch.float32).type_as(logits) # megatron
+            elif self.scoring_func == 'seq_aux_loss':
+                scores, routing_map, tokens_per_expert = topk_softmax_with_capacity(
+                logits,
+                self.top_k,
+                scaling_factor=2.643,
+            )
+            
         ### norm gate to sum 1
         if self.top_k > 1 and self.norm_topk_prob:
             denominator = topk_weight.sum(dim=-1, keepdim=True) + 1e-20
             topk_weight = topk_weight / denominator
         else:
-            topk_weight = topk_weight * self.routed_scaling_factor
+            if use_pre_softmax:
+                topk_weight = topk_weight * self.routed_scaling_factor
+            else:
+                topk_weight = scores * self.routed_scaling_factor
+
+        # topk_masked_gates = torch.zeros_like(logits).scatter(1, topk_idx, topk_weight)
+        # topk_map = torch.zeros_like(logits).int().scatter(1, topk_idx, 1).bool()
+        # tokens_per_expert = topk_map.sum(dim=0)
+        # topk_weight = topk_masked_gates[topk_map].view(bsz, seq_len, -1)
+        
         ### expert-level computation auxiliary loss
         if self.training and self.alpha > 0.0:
             scores_for_aux = scores
@@ -898,6 +962,11 @@ class DeepseekV2MoE(nn.Module):
 
         mg_gate_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'gate_input')
         save_if(needs_save(hidden_states), hidden_states, self.layer_idx, 'gate_input')
+        
+        
+        # chdir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/moe32b/output_hf_w_021"
+        # os.chdir(chdir)
+        # save_if(True, self.gate.weight, self.layer_idx, f'hf_layer_{self.layer_idx}_router_weight')
 
         topk_idx, topk_weight, aux_loss = self.gate(hidden_states)
 
@@ -921,7 +990,7 @@ class DeepseekV2MoE(nn.Module):
             y = AddAuxiliaryLoss.apply(y, aux_loss)
         else:
             mg_expert_input = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_input')
-            save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states.view(*orig_shape), self.layer_idx, 'expert_input')
+            save_if(needs_save(hidden_states.view(*orig_shape)), hidden_states.view(*orig_shape), self.layer_idx, 'expert_input')         
             y = self.moe_infer(hidden_states, topk_idx, topk_weight).view(*orig_shape)
             mg_expert_output = load_if(needs_load(hidden_states.view(*orig_shape), self.layer_idx), self.layer_idx, 'expert_output')
             save_if(needs_save(hidden_states.view(*orig_shape)), y, self.layer_idx, 'expert_output')
@@ -1181,7 +1250,7 @@ class DeepseekV2Attention(nn.Module):
         # save_if(True, self.kv_a_proj_with_mqa.weight, self.layer_idx, 'kv_a_proj_with_mqa_weight')
         # save_if(True, self.kv_b_proj.weight, self.layer_idx, 'kv_b_proj_weight')
         # save_if(True, self.o_proj.weight, self.layer_idx, 'o_proj_weight')
-        # ([5, 1, 2048])
+
         mg_attn_input = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, 'attn_input')
         
         bsz, q_len, _ = hidden_states.size()
@@ -1189,19 +1258,18 @@ class DeepseekV2Attention(nn.Module):
         if self.q_lora_rank is None:
             q = self.q_proj(hidden_states)
         else:
-            # torch.Size([1, 5, 1536])
             save_if(needs_save(hidden_states), self.q_a_proj(hidden_states), self.layer_idx, "q_down_output")
-            # torch.Size([5, 1, 1536])
             mg_q_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_down_output")
 
-            # q: ([1, 5, 6144]) self.q_a_proj(hidden_states): torch.Size([1, 5, 1536])
+            # ([1, 5, 6144])
             q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
-            save_if(needs_save(hidden_states), q, self.layer_idx, "q_up_output")
-            # torch.Size([5, 1, 32, 192])
-            mg_q_up_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_up_output")
+
 
         # # ([1, 32, 5, 192])
         q = q.view(bsz, q_len, self.num_heads, self.q_head_dim).transpose(1, 2)
+        save_if(needs_save(hidden_states), q, self.layer_idx, "q_up_output")
+        mg_q_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "q_up_output")     
+        save_if(needs_save(hidden_states), self.q_b_proj.weight, self.layer_idx, "q_up_proj_weight")   
         # (torch.Size([1, 32, 5, 128]), torch.Size([1, 32, 5, 64]))
         q_nope, q_pe = torch.split(
             q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
@@ -1210,7 +1278,6 @@ class DeepseekV2Attention(nn.Module):
         # ([1, 5, 576])
         compressed_kv = self.kv_a_proj_with_mqa(hidden_states)
         save_if(needs_save(hidden_states), compressed_kv, self.layer_idx, "kv_down_output")
-        # torch.Size([5, 1, 576])
         mg_kv_down_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "kv_down_output")
         # ([1, 5, 512]),  ([1, 5, 64])
         compressed_kv, k_pe = torch.split(
@@ -1226,7 +1293,6 @@ class DeepseekV2Attention(nn.Module):
         )
 
         save_if(needs_save(hidden_states), kv, self.layer_idx, "kv_up_output")
-        # torch.Size([5, 1, 32, 256])
         mg_kv_up_output = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "kv_up_output")
         # ([1, 32, 5, 128]), ([1, 32, 5, 128])
         k_nope, value_states = torch.split(
@@ -1250,7 +1316,6 @@ class DeepseekV2Attention(nn.Module):
         query_states[:, :, :, : self.qk_nope_head_dim] = q_nope
         query_states[:, :, :, self.qk_nope_head_dim :] = q_pe
 
-        #torch.Size([1, 32, 5, 192])
         key_states = k_pe.new_empty(bsz, self.num_heads, q_len, self.q_head_dim)
         key_states[:, :, :, : self.qk_nope_head_dim] = k_nope
         key_states[:, :, :, self.qk_nope_head_dim :] = k_pe
@@ -1259,19 +1324,23 @@ class DeepseekV2Attention(nn.Module):
             key_states, value_states = past_key_value.update(
                 key_states, value_states, self.layer_idx, cache_kwargs
             )
-        # torch.Size([1, 32, 5, 5])
+        torch.Size([1, 32, 5, 5])
 
         save_if(needs_save(hidden_states), query_states, self.layer_idx, "query")
-        # torch.Size([5, 1, 32, 192])
-        mg_query = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "query")
+        mg_q = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "query")
 
         save_if(needs_save(hidden_states), key_states, self.layer_idx, "key")
-        # torch.Size([5, 1, 32, 192])
-        mg_key = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "key")
-        # torch.Size([1, 32, 5, 5])
+        mg_k = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "key")
+        
+        save_if(needs_save(hidden_states), value_states, self.layer_idx, "value")
+        mg_k = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "value")    
+        dtype = torch.float32
+        out_dtype = hidden_states.dtype   
         attn_weights = (
-            torch.matmul(query_states, key_states.transpose(2, 3)) * self.softmax_scale
+            torch.matmul(query_states.to(dtype), key_states.transpose(2, 3).to(dtype)) * self.softmax_scale
         )
+
+        
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
@@ -1291,41 +1360,37 @@ class DeepseekV2Attention(nn.Module):
         # torch.Size([1, 32, 5, 5])
         attn_weights = nn.functional.softmax(
             attn_weights, dim=-1, dtype=torch.float32
-        ).to(query_states.dtype)
+        )
         attn_weights = nn.functional.dropout(
             attn_weights, p=self.attention_dropout, training=self.training
         )
+        # save_if(needs_save(hidden_states), attn_weights, self.layer_idx, "attn_output_before_o_proj")
+        # mg_attn_output_before_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_before_o_proj")
 
-        save_if(needs_save(hidden_states), value_states, self.layer_idx, "value")
-        # torch.Size([5, 1, 32, 128])
-        mg_value = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "value")
-        # torch.Size([1, 32, 5, 128])
-        attn_output = torch.matmul(attn_weights, value_states)
+        attn_output = torch.matmul(attn_weights.to(dtype), value_states.to(dtype)).to(out_dtype)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.v_head_dim):
             raise ValueError(
                 f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.v_head_dim)}, but is"
                 f" {attn_output.size()}"
             )
-        # torch.Size([1, 5, 32, 128])
+
         attn_output = attn_output.transpose(1, 2).contiguous()
-        # torch.Size([1, 5, 4096])
+
         attn_output = attn_output.reshape(bsz, q_len, self.num_heads * self.v_head_dim)
 
         
         save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_before_o_proj")
-        # torch.Size([5, 1, 4096])
         mg_attn_output_before_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_before_o_proj")
-        # torch.Size([1, 5, 2048])
+
         attn_output = self.o_proj(attn_output)
 
         save_if(needs_save(hidden_states), attn_output, self.layer_idx, "attn_output_after_o_proj")
-        # torch.Size([5, 1, 2048])
         mg_attn_output_after_o_proj = load_if(needs_load(hidden_states, self.layer_idx), self.layer_idx, "attn_output_after_o_proj")
         
         if not output_attentions:
             attn_weights = None
-        # torch.Size([1, 5, 2048]), torch.Size([1, 32, 5, 5])
+
         return attn_output, attn_weights, past_key_value
 
 
@@ -1715,9 +1780,9 @@ class DeepseekV2DecoderLayer(nn.Module):
         import os 
         cur_path=os.getcwd()
         if os.getenv("SAVE_PT", '0') == "1":
-            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_mg_021"
+            ckpt_dir = "/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/moe32b/output_mg_021"
         else:
-            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/output_hf_021')
+            ckpt_dir=os.getenv('ckpt_dir', '/mnt/seed-program-nas/001688/dongjie/X10000/zjlab-megatron/Megatron/Megatron-LM_old/examples/inference/moe32b/output_hf_021')
         os.makedirs(ckpt_dir, exist_ok=True)
         os.chdir(ckpt_dir)
         if needs_compare_layer_operator_diff() or needs_compare_moe_operator_diff():
