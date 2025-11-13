@@ -282,7 +282,6 @@ def get_batch(data_iterator):
             # batch['tokens'] = torch.where(batch['tokens'] > 128255, 128255, batch['tokens'])
             # from transformers import AutoTokenizer
             # tokenizer = AutoTokenizer.from_pretrained("/mnt/seed-program-nas/001688/xiechunhong/1B_Loss_Align/Meta-Llama-3-tokenizer")
-            
         # print("labels:", batch['labels'][0])
         # print("label all tokens:", (batch['labels'][0] != -100).sum())
         # print("loss mask:", batch['loss_mask'][0])

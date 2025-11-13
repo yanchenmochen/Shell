@@ -6,7 +6,9 @@ import torch.nn.functional as F
 import megatron.training.arguments
 from megatron.training.activations import squared_relu
 from megatron.core.transformer.transformer_config import TransformerConfig, MLATransformerConfig
+
 moe_freq_type = megatron.training.arguments.moe_freq_type
+
 
 def _add_moe_args(parser):
     group = parser.add_argument_group(title="moe")
@@ -27,27 +29,27 @@ def _add_moe_args(parser):
                             '"([1]*3+[0]*2)*2": Three expert layers followed by two dense layers, repeated twice.')
     group.add_argument('--moe-ffn-hidden-size', type=int, default=None,
                        help='The hidden size of each expert\'s feed-forward network (ffn). '
-                       'If not specified, defaults to the ffn_hidden_size.')
+                            'If not specified, defaults to the ffn_hidden_size.')
     group.add_argument('--moe-shared-expert-intermediate-size', type=int, default=None,
                        help='Shared expert total ffn hidden size. '
-                       'It should be equal to "num_shared_experts * ffn_size_of_each_shared_expert" if there are multiple shared experts. '
-                       'None means no shared expert.')
+                            'It should be equal to "num_shared_experts * ffn_size_of_each_shared_expert" if there are multiple shared experts. '
+                            'None means no shared expert.')
     group.add_argument('--moe-shared-expert-overlap', action='store_true',
                        help='Enable overlapping between shared expert computations and dispatcher communications. '
-                       'Without this, the shared epxerts execute after the routed experts. '
-                       'Only effective when moe-shared-expert-intermediate-size is set.')
+                            'Without this, the shared epxerts execute after the routed experts. '
+                            'Only effective when moe-shared-expert-intermediate-size is set.')
     group.add_argument('--moe-grouped-gemm', action='store_true',
                        help='When there are multiple experts per rank, launch multiple local GEMM kernels in multiple streams to improve the utilization and performance with GroupedLinear in TransformerEngine.')
     group.add_argument('--moe-use-legacy-grouped-gemm', action='store_true',
                        help='Use legacy GroupedMLP rather than TEGroupedMLP. Note: The legacy one will be deprecated soon.')
     group.add_argument('--moe-layer-recompute', action='store_true',
                        help='Enable checkpointing for moe_layer, should be used when memory is not sufficient. '
-                       'Deprecated. Use "--recompute-granularity selective --recompute-modules moe" instead.')
+                            'Deprecated. Use "--recompute-granularity selective --recompute-modules moe" instead.')
     group.add_argument('--moe-extended-tp', action='store_true',
                        help='Deprecated. Use --expert-tensor-parallel-size instead.')
     group.add_argument('--moe-use-upcycling', action='store_true',
                        help='Load a checkpoint of a dense model, convert it into an MoE model, and save the converted model to the path specified by --save. '
-                       'Upcycling is implemented on the top of distributed checkpointing, so it supports parallel modes different from the dense model.')
+                            'Upcycling is implemented on the top of distributed checkpointing, so it supports parallel modes different from the dense model.')
     # Router arguments
     group.add_argument('--moe-router-load-balancing-type', type=str,
                        choices=['aux_loss', 'seq_aux_loss', 'sinkhorn', 'none'],
@@ -70,28 +72,28 @@ def _add_moe_args(parser):
                        help='Enable pre-softmax routing for MoE, which means softmax is before the top-k selection. By default, softmax is done after top-k.')
     group.add_argument('--moe-router-num-groups', type=int, default=None,
                        help='Number of groups to divide experts into for group-limited routing. When using group-limited routing: 1) Experts are divided into equal-sized groups, 2) For each token, a subset of groups are selected based on routing scores (sum of top-2 expert scores within each group), 3) From these selected groups, moe_router_topk experts are chosen.'
-                       'Two common use cases: 1) Device-limited routing: Set equal to expert parallel size (EP) to limit each token to experts on a subset of devices (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434) 2) Node-limited routing: Set equal to number of nodes in EP group to limit each token to experts on a subset of nodes (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)')
+                            'Two common use cases: 1) Device-limited routing: Set equal to expert parallel size (EP) to limit each token to experts on a subset of devices (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434) 2) Node-limited routing: Set equal to number of nodes in EP group to limit each token to experts on a subset of nodes (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)')
     group.add_argument('--moe-router-group-topk', type=int, default=None,
                        help='Number of selected groups for group-limited routing.')
     group.add_argument('--moe-router-topk-scaling-factor', type=float, default=None,
                        help='Scaling factor for routing score in top-k selection, only works when --moe-router-pre-softmax enabled. Defaults to None, which means no scaling.')
     group.add_argument('--moe-router-enable-expert-bias', action='store_true',
                        help='TopK routing with dynamic expert bias in the aux-loss-free load balancing strategy. '
-                       'The routing decision is based on the sum of the routing scores and the expert bias. '
-                       'See https://arxiv.org/abs/2408.15664 for details.')
+                            'The routing decision is based on the sum of the routing scores and the expert bias. '
+                            'See https://arxiv.org/abs/2408.15664 for details.')
     group.add_argument('--moe-router-bias-update-rate', type=float, default=1e-3,
                        help='Expert bias update rate in the aux-loss-free load balancing strategy. '
-                       'The expert bias is updated based on the number of assigned tokens to each expert in a global batch, '
-                       'where the bias is increased for the experts with less assigned tokens and decreased for the experts with more assigned tokens. '
-                       'The default value 1e-3 is same as that used in DeepSeekV3.')
+                            'The expert bias is updated based on the number of assigned tokens to each expert in a global batch, '
+                            'where the bias is increased for the experts with less assigned tokens and decreased for the experts with more assigned tokens. '
+                            'The default value 1e-3 is same as that used in DeepSeekV3.')
     group.add_argument('--moe-router-force-load-balancing', action='store_true',
                        help='[Experimental] Force override routing to balance token distribution using random logits for MoE routers, supporting naive top-k and group-limited top-k. This experimental feature is for benchmarking purposes only!')
     group.add_argument('--moe-router-padding-for-fp8', action='store_true',
                        help='Pad the routing_map to make sure the number of tokens each expert received '
-                       'is a multiple of 16/32 for FP8 precision. It is suggested to enable this for '
-                       'dropless training with FP8 precision when num_local_experts > 1. This is a more '
-                       'efficient way to pad for FP8 which eliminates the explicit padding in the '
-                       'GroupedMLP layer.')
+                            'is a multiple of 16/32 for FP8 precision. It is suggested to enable this for '
+                            'dropless training with FP8 precision when num_local_experts > 1. This is a more '
+                            'efficient way to pad for FP8 which eliminates the explicit padding in the '
+                            'GroupedMLP layer.')
     group.add_argument('--moe-aux-loss-coeff', type=float, default=0.0,
                        help='Scaling coefficient for the aux loss: a starting value of 1e-2 is recommended.')
     group.add_argument('--moe-z-loss-coeff', type=float, default=None,
@@ -125,11 +127,11 @@ def _add_moe_args(parser):
                        help='Delay the wgrad compute for batch-level overlapping')
     group.add_argument('--moe-upcycling-granularity', type=int, default=1,
                        help='This param sepecifics how many times smaller is the expert hidden size compared with the original dense FFN hidden size. '
-                       'For using granular upcycling strategy, please set this param as a positive integer. If this param is set to 1, it means using the default upcycling strategy.')
-    
+                            'For using granular upcycling strategy, please set this param as a positive integer. If this param is set to 1, it means using the default upcycling strategy.')
+
     # HACK(huang.huang): control dp_reduce position: tp-only-amax-red 
     group.add_argument('--tp-only-amax-red', action='store_true',
-                        help="Whether to reduce the FP8 AMAX only in the TP or TP-CP domain") 
+                       help="Whether to reduce the FP8 AMAX only in the TP or TP-CP domain")
     ## HACK(huang.huang)
 
     # HACK(yehua.zhang): add dsv2 & dsv3 loss, q-rms-recompute
@@ -140,7 +142,7 @@ def _add_moe_args(parser):
                        help='Scaling coefficient for the communication aux loss')
     group.add_argument('--moe-device-level-capacity', action='store_true',
                        help='Whether to consider the expert capacity of a group together')
-    
+
     # dsv3
     group.add_argument('--moe-complementary-seq-aux-loss', action='store_true',
                        help='use complementary sequence-wise aux loss in MoE, should only used with seq_aux_loss')
@@ -157,23 +159,29 @@ def _add_moe_args(parser):
         print("Init recompute variance related args!")
         # HACK(huang.huang): add attn-recompute, recompute-variance, groupMLP_recompute
         group.add_argument('--attn-recompute', action='store_true',
-                        help="use attn recompute")
+                           help="use attn recompute")
         group.add_argument('--mla-rms-recompute', action='store_true',
-                        help="use rms recompute before mla")
+                           help="use rms recompute before mla")
         group.add_argument('--mlp-rms-recompute', action='store_true',
-                        help="use rms recompute before mlp")
+                           help="use rms recompute before mlp")
         group.add_argument('--recompute-variance', action='store_true',
-                        help="use recompute variance")
+                           help="use recompute variance")
         group.add_argument('--mlp-recompute', action='store_true',
-                        help="use groupMLP_recompute to recompute groupgemm and shared_exp in moelayer, mlp in dense") 
-    ## HACK(huang.huang)
+                           help="use groupMLP_recompute to recompute groupgemm and shared_exp in moelayer, mlp in dense")
+        ## HACK(huang.huang)
     group.add_argument('--offload-moe-fc1-input', action='store_true',
-                    help="Whether to offload moe fc1 to cpu")
+                       help="Whether to offload moe fc1 to cpu")
+
+    group.add_argument("--dataset", type=str, default="MMAP", help="dataset")
+
+    group.add_argument(
+        "--train-mode", default="pretrain", type=str, help="pretrain or finetune"
+    )
+
     return parser
 
 
 def core_transformer_config_from_args(args, config_class=None):
-
     # Config class.
     config_class = config_class or TransformerConfig
 
@@ -193,8 +201,8 @@ def core_transformer_config_from_args(args, config_class=None):
     kw_args['batch_p2p_comm'] = not args.overlap_p2p_comm
     kw_args['num_moe_experts'] = args.num_experts
     kw_args['rotary_interleaved'] = args.rotary_interleaved
-    kw_args['num_layers_in_first_pipeline_stage']= args.decoder_first_pipeline_num_layers
-    kw_args['num_layers_in_last_pipeline_stage']= args.decoder_last_pipeline_num_layers
+    kw_args['num_layers_in_first_pipeline_stage'] = args.decoder_first_pipeline_num_layers
+    kw_args['num_layers_in_last_pipeline_stage'] = args.decoder_last_pipeline_num_layers
     if args.swiglu:
         kw_args['activation_func'] = F.silu
         kw_args['gated_linear_unit'] = True
@@ -215,9 +223,9 @@ def core_transformer_config_from_args(args, config_class=None):
 
     if len(args.cp_comm_type) == 1:
         kw_args['cp_comm_type'] = args.cp_comm_type[0]
-    
+
     # Return config.
-    
+
     # HACK(yehua.zhang): add dsv2 & dsv3 loss, mtp, q-rms-recompute from args to transformer config
     config_instance = config_class(**kw_args)
 

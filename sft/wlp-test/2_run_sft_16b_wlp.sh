@@ -50,6 +50,7 @@ EP=${EP:-4}
 DIST_BACKEND=${DIST_BACKEND:-nccl}
 PR=${PR:-bf16}
 FP8=${FP8:-false}
+SFT=${SFT:-true}
 GC=${GC:-1}
 OVERLAP=${OVERLAP:-0}
 TIMER_PRINT={TIMER_PRINT:-false}
@@ -383,6 +384,13 @@ MOE_ARGS=(
 
 if [ "$ROUTER_DTYPE" = "fp32" ] || [ "$ROUTER_DTYPE" = "fp64" ]; then
   MOE_ARGS+=(--moe-router-dtype "$ROUTER_DTYPE")
+fi
+
+if [ $SFT = true ]; then
+  TRAINING_ARGS+=(
+    --dataset MMAP
+    --train-mode finetune
+  )
 fi
 ###########################
 ###### running scripts
