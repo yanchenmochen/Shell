@@ -83,7 +83,12 @@ class Encoder(object):
             #     {'role': 'assistant', 'content': messages[1]["content"]}
             # ]
 
+            print(f'======messages: {text}')
+
             input_ids = self.tokenizer.apply_chat_template(text[:-1])
+
+            print(f'======input_ids: {input_ids}')
+
             if len(input_ids) >= self.seq_length:
                 print('Extreme long user input, omitted...')
                 continue
