@@ -95,6 +95,9 @@ class Encoder(object):
                 print('Extreme long user input, omitted...')
                 continue
             all_ids = self.tokenizer.apply_chat_template(text)
+
+            print(f'======all_ids decode: {self.tokenizer.decode(all_ids)}')
+
             if len(all_ids) >= self.seq_length:
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
