@@ -57,10 +57,10 @@ class Encoder(object):
 
         # WARNING: the seqlen of built idxmap dataset is 2x of input seqlen!!!!
         for data in datas:
-            messages = [
-                {'role': 'user', 'content': data["instruction"] + data['input']},
-                {'role': 'assistant', 'content': data['output']}
-            ]
+            # messages = [
+            #     {'role': 'user', 'content': data["instruction"] + data['input']},
+            #     {'role': 'assistant', 'content': data['output']}
+            # ]
 
             # tulu-v3
             """
@@ -73,6 +73,7 @@ class Encoder(object):
                     ], "source": "ai2-adapt-dev/oasst1_converted"
                 }
             """
+            messages = data['messages']
 
             if len(messages) < 2:
                 continue
