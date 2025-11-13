@@ -117,6 +117,7 @@ class Encoder(object):
             if all(x == self.tokenizer.pad_token_id for x in y_ids):
                 continue
 
+            print(f'======y_ids: {y_ids}')
             print(f'======y_ids decode: {self.tokenizer.detokenize(y_ids)}')
 
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
