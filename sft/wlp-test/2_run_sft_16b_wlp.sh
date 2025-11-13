@@ -266,6 +266,7 @@ if [ $SFT = true ]; then
   TRAINING_ARGS+=(
     --dataset MMAP
     --train-mode finetune
+    --finetune
   )
 fi
 
