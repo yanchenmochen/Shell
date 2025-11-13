@@ -179,7 +179,9 @@ class Partition(object):
         else:
             if self.args.debug:
                 encoder.initializer()
-                encoded_docs = (encoder.encode_blocked(doc) for doc in fin)
+                # encoded_docs = (encoder.encode_blocked(doc) for doc in fin)
+                print(f'=====fin0:{fin[0]}')
+                encoded_docs = encoder.encode_blocked(fin[0])
             else:
                 pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
                 encoded_docs = pool.imap(encoder.encode_blocked, fin, 32)
