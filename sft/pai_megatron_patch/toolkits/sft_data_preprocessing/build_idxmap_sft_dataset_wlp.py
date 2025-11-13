@@ -89,6 +89,8 @@ class Encoder(object):
 
             print(f'======input_ids: {input_ids}')
 
+            print(f'======input_ids decode: {self.tokenizer.decode(input_ids)}')
+
             if len(input_ids) >= self.seq_length:
                 print('Extreme long user input, omitted...')
                 continue
@@ -103,6 +105,8 @@ class Encoder(object):
             y_ids = [-100] * (len(input_ids) - 1) + all_ids[len(input_ids):] + [-100]
             all_ids[-1] = - 1 - all_ids[-1]
 
+            # print(f'======input_ids decode: {self.tokenizer.decode(input_ids)}')
+
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
                 if self.seq_length > sum(sentence_lens):
                     doc_ids = doc_ids + [pad_token_id] * (self.seq_length - sum(sentence_lens))
@@ -110,6 +114,7 @@ class Encoder(object):
                 ids['text'] = doc_ids + label_ids
                 lens['text'] = [len(doc_ids) * 2]
                 yield ids, lens, len(json.dumps(ids))
+
                 ids = {}
                 lens = {}
                 doc_ids = []
@@ -119,7 +124,6 @@ class Encoder(object):
             doc_ids.extend(all_ids)
             label_ids.extend(y_ids)
             sentence_lens.append(len(all_ids))
-            break
         if sum(sentence_lens) > 0:
             # Need Padding
             if self.seq_length > sum(sentence_lens):
