@@ -57,7 +57,7 @@ class Encoder(object):
 
         # WARNING: the seqlen of built idxmap dataset is 2x of input seqlen!!!!
         for data in datas:
-            text = [
+            messages = [
                 {'role': 'user', 'content': data["instruction"] + data['input']},
                 {'role': 'assistant', 'content': data['output']}
             ]
@@ -82,19 +82,12 @@ class Encoder(object):
             #     {'role': 'user', 'content': messages[0]["content"]},
             #     {'role': 'assistant', 'content': messages[1]["content"]}
             # ]
-
-            print(f'======messages: {text}')
-
-            input_ids = self.tokenizer.apply_chat_template(text[:-1])
-
-            print(f'======input_ids: {input_ids}')
-
-            print(f'======input_ids decode: {self.tokenizer.detokenize(input_ids)}')
-
-            if len(input_ids) >= self.seq_length:
-                print('Extreme long user input, omitted...')
+            if len(messages) < 2:
                 continue
-            all_ids = self.tokenizer.apply_chat_template(text)[:-4]
+
+            print(f'======messages: {messages}')
+
+            all_ids = self.tokenizer.apply_chat_template(messages)[:-4]
 
             print(f'======all_ids decode: {self.tokenizer.detokenize(all_ids)}')
 
@@ -102,13 +95,29 @@ class Encoder(object):
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
 
-            for t1, t2 in zip(input_ids, all_ids):
-                assert t1 == t2, "The user input_ids are not a prefix of the full input_ids!"
-
-            y_ids = [-100] * (len(input_ids) - 1) + all_ids[len(input_ids):] + [-100]
             all_ids[-1] = - 1 - all_ids[-1]
 
-            # print(f'======input_ids decode: {self.tokenizer.decode(input_ids)}')
+            # y_ids = [-100] * (len(input_ids) - 1) + all_ids[len(input_ids):] + [-100]
+
+            y_ids = [self.tokenizer.pad_token_id] * len(all_ids)
+
+            for idx, msg in enumerate(messages):
+                if msg['role'] != 'assistant' or idx < 1:
+                    continue
+
+                partial_ids = self.tokenizer.apply_chat_template(messages[:idx + 1])[:-4]
+
+                prompt_ids = self.tokenizer.apply_chat_template(messages[:idx])
+
+                start_idx = len(prompt_ids)
+                end_idx = min(len(partial_ids), len(all_ids))
+
+                y_ids[(start_idx - 1): (end_idx - 1)] = all_ids[start_idx: end_idx]
+
+            if all(x == self.tokenizer.pad_token_id for x in y_ids):
+                continue
+
+            print(f'======y_ids decode: {self.tokenizer.detokenize(y_ids)}')
 
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
                 if self.seq_length > sum(sentence_lens):
