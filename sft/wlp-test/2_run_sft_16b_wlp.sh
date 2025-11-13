@@ -30,10 +30,10 @@ export NO_LOSS_REDUCE=0
 export LOGLEVEL="INFO"
 export MUSA_EXECUTION_TIMEOUT=20000000
 export MUSA_BLOCK_DISTRIBUTION_GRANULARITY=0
-export MUSA_LOG=0x1
+#export MUSA_LOG=0x1
 
-MEGATRON_PATH=/mnt/seed17/001688/wangluping/Shell/sft/Megatron-LM_kuae_1022
-MEGATRON_MUSA_PATH=/mnt/seed17/001688/wangluping/Shell/sft/megatron-lm-musa-patch_kuae_1022
+MEGATRON_PATH=/mnt/seed17/001688/wangluping/sft/Megatron-LM_kuae_1022
+MEGATRON_MUSA_PATH=/mnt/seed17/001688/wangluping/sft/megatron-lm-musa-patch_kuae_1022
 
 export PYTHONPATH=${MEGATRON_PATH}:${MEGATRON_MUSA_PATH}:$PYTHONPATH
 export LD_LIBRARY_PATH=/usr/local/openmpi/lib:/usr/local/musa/lib:${LD_LIBRARY_PATH}
@@ -54,17 +54,18 @@ SFT=${SFT:-true}
 GC=${GC:-1}
 OVERLAP=${OVERLAP:-0}
 TIMER_PRINT={TIMER_PRINT:-false}
-TRAIN_ITERS=${TRAIN_ITERS:-100}
+TRAIN_ITERS=${TRAIN_ITERS:-3349}
 CHECKPOINT_LOAD_PATH=${CHECKPOINT_LOAD_PATH:-"/mnt/moer-train/public/checkpoints/021-16B-8t-bf16-1108-compare-new"}
 
 echo "Using MUSA backend"
 
 ROUTER_DTYPE=${ROUTER_DTYPE:-fp32}
-MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-1}
+MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-4}
 GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-128}
 SEQ_LEN=${SEQ_LEN:-4096}
 
 DATA_PATH=${DATA_PATH:-"/mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_text_document"}
+#DATA_PATH=${DATA_PATH:-"/mnt/seed17/001688/wangluping/test-data/qwen_sft_text_document"}
 DATA_CACHE_PATH=/mnt/seed17/001688/wangluping/test-data/datacache
 TOKENIZED_MODEL=/mnt/moer-train/public/models/zjllm-llama3-tokenizer
 MODEL_NAME=${MODEL_NAME:-'021-16B-sft'}
@@ -73,7 +74,10 @@ if [[ -z ${SEEN_STEPS} ]]; then
   SEEN_STEPS=0
 fi
 
-TRAIN_SAMPLES=${TRAIN_SAMPLES:-139040000}
+#TRAIN_SAMPLES=${TRAIN_SAMPLES:-139040000}
+
+TRAIN_SAMPLES=$(($TRAIN_ITERS * $GLOBAL_BATCH_SIZE))
+
 WARMUP_STEPS=2000
 WARMUP_SAMPLES=$((WARMUP_STEPS * 1600))
 OUTPUT_DIR=${OUTPUT_DIR:-"/mnt/seed17/001688/wangluping/output"}
@@ -91,8 +95,8 @@ RECOMPUTE_LAYERS=1
 WORLD_SIZE=$((GPUS_PER_NODE * NUM_NODES))
 DP_SIZE=$((WORLD_SIZE / (PP * TP)))
 NODE_RANK=${RANK:-0}
-SAVE_INTERVAL=${SAVE_INTERVAL:-10000000}
-EXIT_INTERVAL=${EXIT_INTERVAL:-20000000}
+SAVE_INTERVAL=${SAVE_INTERVAL:-1116}
+EXIT_INTERVAL=${EXIT_INTERVAL:-4000}
 ###########################
 EXPNAME="zj_tp${TP}_pp${PP}_dp${DP_SIZE}_ep${EP}_mbs${MICRO_BATCH_SIZE}_numbs${NUM_MICROBATCHES}_gbs${GLOBAL_BATCH_SIZE}_gpus${WORLD_SIZE}_router${ROUTER_DTYPE}"
 
@@ -237,7 +241,8 @@ TRAINING_ARGS=(
   --micro-batch-size $MICRO_BATCH_SIZE
   --global-batch-size $GLOBAL_BATCH_SIZE
   #  --rampup-batch-size 1200 1200 54931640
-  --train-samples $TRAIN_SAMPLES
+  #  --train-samples $TRAIN_SAMPLES
+  --train-iters $TRAIN_ITERS
   --init-method-std 0.006 # 0.02 in HF config, but 0.006 in the paper
   --use-mcore-models
   # 匹配
@@ -260,6 +265,13 @@ TRAINING_ARGS=(
   --enable-experimental
   --no-rope-fusion
   --rotary-seq-len-interpolation-factor 1
+
+  #  wlp
+  --calculate-per-token-loss
+  #  --end-weight-decay 0.0
+  --override-opt_param-scheduler
+  --use-rotary-position-embeddings
+  --rerun-mode disabled
 )
 
 if [ $SFT = true ]; then
@@ -267,6 +279,9 @@ if [ $SFT = true ]; then
     --dataset MMAP
     --train-mode finetune
     --finetune
+    --no-load-optim
+    --no-load-rng
+    --dataloader-type cyclic
   )
 fi
 
@@ -281,18 +296,19 @@ MLA_ARGS=(
 REGULARIZATION_ARGS=(
   --weight-decay 0.1
   --adam-beta1 0.9
-  --adam-beta2 0.95
+  --adam-beta2 0.999
   --clip-grad 1.0
 )
 
 LEARNING_RATE_ARGS=(
-  --lr 4.2e-4
+  --lr 4.2e-05 #4.2e-4 wlp
   --lr-decay-style cosine
   --lr-wsd-decay-style exponential
-  --lr-warmup-samples 128
-  --min-lr 4.2e-05
-  --initial-loss-scale 65536
+  --lr-warmup-samples 0           # 128
+  --min-lr 4.2e-06                # 4.2e-05
+  --initial-loss-scale 4294967296 #65536 wlp
   --min-loss-scale 1.0
+  --lr-warmup-iters 100 # wlp
 )
 
 MODEL_PARALLEL_ARGS=(
@@ -304,8 +320,8 @@ MODEL_PARALLEL_ARGS=(
 if [ $PR = bf16 ]; then
   MIXED_PRECISION_ARGS=(
     --bf16
-    --attention-softmax-in-fp32
-    --no-masked-softmax-fusion
+    #    --attention-softmax-in-fp32  wlp
+    #    --no-masked-softmax-fusion wlp
     --accumulate-allreduce-grads-in-fp32
   )
 fi
@@ -316,7 +332,7 @@ DATA_ARGS=(
   --tokenizer-model ${TOKENIZED_MODEL}
   --data-cache-path $DATA_CACHE_PATH
   --split 100,0,0
-  --distributed-timeout-minutes 480
+  --distributed-timeout-minutes 40
   --num-dataset-builder-threads 16
   --num-workers 2
 )
@@ -343,19 +359,14 @@ EVAL_AND_LOGGING_ARGS=(
   --log-throughput
   --log-timers-to-tensorboard
   --save-interval $SAVE_INTERVAL
-  --eval-interval 1
+  --eval-interval 10000
   --save $CHECKPOINT_PATH
   --load $CHECKPOINT_LOAD_PATH
   --eval-iters 0
   --tensorboard-dir $TENSORBOARD_PATH
   --ckpt-format torch
   --exit-interval $EXIT_INTERVAL
-  --logging-level 20
-
-  --no-load-optim
-  --no-load-rng
-  #  --dataloader-type external
-  --dataloader-type cyclic
+  #  --logging-level 20
 )
 if [ $TIMER_PRINT = true ]; then
   MEGATRON_LOGGING_ARGS=(
