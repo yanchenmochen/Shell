@@ -397,7 +397,7 @@ fi
 ###### running scripts
 ###########################
 
-torchrun ${DISTRIBUTED_ARGS[@]} /mnt/seed17/001688/wangluping/Shell/sft/megatron-lm-musa-patch_1024/examples/deepseek-sft/pretrain_deepseekv2.py \
+torchrun ${DISTRIBUTED_ARGS[@]} ${MEGATRON_MUSA_PATH}/examples/deepseek-sft/pretrain_deepseekv2.py \
   ${MODEL_ARGS[@]} \
   ${TRAINING_ARGS[@]} \
   ${REGULARIZATION_ARGS[@]} \
