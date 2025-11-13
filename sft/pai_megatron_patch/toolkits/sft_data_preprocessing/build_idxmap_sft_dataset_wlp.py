@@ -83,9 +83,10 @@ class Encoder(object):
             if len(all_ids) >= self.seq_length:
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
+            else:
+                all_ids[-1] = - 1 - all_ids[-1]
 
-            all_ids[-1] = - 1 - all_ids[-1]
-            y_ids = [self.tokenizer.pad_token_id] * len(all_ids)
+            y_ids = [-100] * len(all_ids)
 
             for idx, msg in enumerate(messages):
                 if msg['role'] != 'assistant' or idx < 1:
@@ -96,7 +97,7 @@ class Encoder(object):
                 end_idx = min(len(partial_ids), len(all_ids))
                 y_ids[(start_idx - 1): (end_idx - 1)] = all_ids[start_idx: end_idx]
 
-            if all(x == self.tokenizer.pad_token_id for x in y_ids):
+            if all(x == -100 for x in y_ids):
                 continue
 
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
@@ -105,6 +106,7 @@ class Encoder(object):
                     label_ids = label_ids + [-100] * (self.seq_length - sum(sentence_lens))
                 ids['text'] = doc_ids + label_ids
                 lens['text'] = [len(doc_ids) * 2]
+
                 yield ids, lens, len(json.dumps(ids))
 
                 ids = {}
@@ -116,6 +118,7 @@ class Encoder(object):
             doc_ids.extend(all_ids)
             label_ids.extend(y_ids)
             sentence_lens.append(len(all_ids))
+
         if sum(sentence_lens) > 0:
             # Need Padding
             if self.seq_length > sum(sentence_lens):
