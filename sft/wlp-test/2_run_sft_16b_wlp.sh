@@ -63,7 +63,7 @@ MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-1}
 GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-128}
 SEQ_LEN=${SEQ_LEN:-4096}
 
-DATA_PATH=${DATA_PATH:-"/mnt/seed17/001688/wangluping/test-data/qwen_sft_text_document"}
+DATA_PATH=${DATA_PATH:-"/mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_text_document"}
 DATA_CACHE_PATH=/mnt/seed17/001688/wangluping/test-data/datacache
 TOKENIZED_MODEL=/mnt/moer-train/public/models/zjllm-llama3-tokenizer
 MODEL_NAME=${MODEL_NAME:-'021-16B-sft'}
