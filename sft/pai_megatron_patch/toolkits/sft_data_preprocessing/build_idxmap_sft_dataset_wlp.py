@@ -73,52 +73,30 @@ class Encoder(object):
                     ], "source": "ai2-adapt-dev/oasst1_converted"
                 }
             """
-            # text = data['messages']
 
-            # if len(messages) < 2:
-            #     continue
-
-            # text = [
-            #     {'role': 'user', 'content': messages[0]["content"]},
-            #     {'role': 'assistant', 'content': messages[1]["content"]}
-            # ]
             if len(messages) < 2:
                 continue
 
-            print(f'======messages: {messages}')
-
             all_ids = self.tokenizer.apply_chat_template(messages)[:-4]
-
-            print(f'======all_ids decode: {self.tokenizer.detokenize(all_ids[40:])}')
 
             if len(all_ids) >= self.seq_length:
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
 
-            # all_ids[-1] = - 1 - all_ids[-1]
-
-            # y_ids = [-100] * (len(input_ids) - 1) + all_ids[len(input_ids):] + [-100]
-
+            all_ids[-1] = - 1 - all_ids[-1]
             y_ids = [self.tokenizer.pad_token_id] * len(all_ids)
 
             for idx, msg in enumerate(messages):
                 if msg['role'] != 'assistant' or idx < 1:
                     continue
-
                 partial_ids = self.tokenizer.apply_chat_template(messages[:idx + 1])[:-4]
-
                 prompt_ids = self.tokenizer.apply_chat_template(messages[:idx])
-
                 start_idx = len(prompt_ids)
                 end_idx = min(len(partial_ids), len(all_ids))
-
                 y_ids[(start_idx - 1): (end_idx - 1)] = all_ids[start_idx: end_idx]
 
             if all(x == self.tokenizer.pad_token_id for x in y_ids):
                 continue
-
-            print(f'======y_ids: {y_ids}')
-            print(f'======y_ids decode: {self.tokenizer.detokenize(y_ids[40:])}')
 
             if sum(sentence_lens) + len(all_ids) > self.seq_length:
                 if self.seq_length > sum(sentence_lens):
@@ -196,9 +174,8 @@ class Partition(object):
         else:
             if self.args.debug:
                 encoder.initializer()
-                # encoded_docs = (encoder.encode_blocked(doc) for doc in fin)
-                print(f'=====fin0:{fin[0]}')
-                encoded_docs = encoder.encode_blocked(fin[0])
+                encoded_docs = (encoder.encode_blocked(doc) for doc in fin)
+                # encoded_docs = encoder.encode_blocked(fin[0])
             else:
                 pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
                 encoded_docs = pool.imap(encoder.encode_blocked, fin, 32)

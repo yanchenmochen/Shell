@@ -27,8 +27,7 @@ cmd="python build_idxmap_sft_dataset_wlp.py \
   --load ${load_dir} \
   --seq-length ${seq_len} \
   --workers 8 \
-  --partitions 1 ${packing_option} \
-  --debug"
+  --partitions 1 ${packing_option}"
 
 echo $cmd
 eval $cmd
