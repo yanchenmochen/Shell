@@ -95,7 +95,7 @@ class Encoder(object):
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
 
-            all_ids[-1] = - 1 - all_ids[-1]
+            # all_ids[-1] = - 1 - all_ids[-1]
 
             # y_ids = [-100] * (len(input_ids) - 1) + all_ids[len(input_ids):] + [-100]
 
