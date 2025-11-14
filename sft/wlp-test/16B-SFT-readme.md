@@ -67,10 +67,12 @@ fi
 ```bibtex
 train_iters = 数据集样本数 * epoches / global_batch_size
 
+代入一下数据:
 数据集样本数 = 
 epoches = 3 
-global_batch_size = 128 
+global_batch_size = 128
 
+得到train_iters = 
 ```
 
 
