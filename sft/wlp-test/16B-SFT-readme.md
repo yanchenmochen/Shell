@@ -32,6 +32,8 @@ bash run_build_idxmap_sft_dataset_wlp.sh \
   true
 ```
 #### 处理后样本信息
+##### 数据集tulu-v3
+
 packing前样本量: 93万条
 
 packing后样本量: 
@@ -63,8 +65,15 @@ fi
 #### 确定--train-iters
 
 ```bibtex
- train_iters = 数据集样本数 * epoches / global_batch_size
+train_iters = 数据集样本数 * epoches / global_batch_size
+
+数据集样本数 = 
+epoches = 3 
+global_batch_size = 128 
+
 ```
+
+
 
 
 
