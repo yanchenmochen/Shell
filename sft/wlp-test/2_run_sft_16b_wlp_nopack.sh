@@ -169,7 +169,8 @@ mkdir -p ${OUTPUT_DIR}/logs/${CURRENT_TIME}
 LOG_FILE="${OUTPUT_DIR}/logs/${CURRENT_TIME}/${EXPNAME}.${NODE_RANK}.${NODE_ADDR}.log"
 CHECKPOINT_PATH=${CHECKPOINT_PATH:-"${OUTPUT_DIR}/checkpoint/${EXPNAME}"}
 mkdir -p ${CHECKPOINT_PATH}
-TENSORBOARD_PATH="${OUTPUT_DIR}/tf_logs/${CURRENT_TIME}_${MODEL_NAME}"
+#TENSORBOARD_PATH="${OUTPUT_DIR}/tf_logs/${CURRENT_TIME}_${MODEL_NAME}"
+TENSORBOARD_PATH="${OUTPUT_DIR}/tf_logs/"
 
 ###########################
 ###### training args
