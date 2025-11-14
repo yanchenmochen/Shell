@@ -57,34 +57,38 @@ class Encoder(object):
 
         # WARNING: the seqlen of built idxmap dataset is 2x of input seqlen!!!!
         for data in datas:
-            # messages = [
-            #     {'role': 'user', 'content': data["instruction"] + data['input']},
-            #     {'role': 'assistant', 'content': data['output']}
-            # ]
+            if self.args.debug:
+                # qwen sft test data
+                messages = [
+                    {'role': 'user', 'content': data["instruction"] + data['input']},
+                    {'role': 'assistant', 'content': data['output']}
+                ]
+            else:
+                # tulu-v3
+                """
+                    {
+                        "id": "oasst1_5921",
+                        "messages":
+                        [
+                        {"content": "Create a snippet of Terraform HCL code that cre.", "role": "user"},
+                        {"content": "     = \"alicy_timeci create a.", "role": "assistant"}
+                        ], "source": "ai2-adapt-dev/oasst1_converted"
+                    }
+                """
+                messages = data['messages']
 
-            # tulu-v3
-            """
-                {
-                    "id": "oasst1_5921",
-                    "messages":
-                    [
-                    {"content": "Create a snippet of Terraform HCL code that cre.", "role": "user"},
-                    {"content": "     = \"alicy_timeci create a.", "role": "assistant"}
-                    ], "source": "ai2-adapt-dev/oasst1_converted"
-                }
-            """
-            messages = data['messages']
-
+            # 不足2个角色为无效样本
             if len(messages) < 2:
                 continue
 
+            # 利用chat模板后需要去掉尾部无效的assitant标记
             all_ids = self.tokenizer.apply_chat_template(messages)[:-4]
 
             if len(all_ids) >= self.seq_length:
                 print('Extreme long sequence, truncted...')
                 all_ids = all_ids[:self.seq_length]
-            # else:
-            #     all_ids[-1] = - 1 - all_ids[-1]
+            else:
+                all_ids[-1] = - 1 - all_ids[-1]
 
             y_ids = [-100] * len(all_ids)
 
@@ -97,6 +101,7 @@ class Encoder(object):
                 end_idx = min(len(partial_ids), len(all_ids))
                 y_ids[(start_idx - 1): (end_idx - 1)] = all_ids[start_idx: end_idx]
 
+            # 没有有效标签的样本为无效样本
             if all(x == -100 for x in y_ids):
                 continue
 
@@ -268,7 +273,8 @@ def get_args():
         '--patch-tokenizer-type',
         type=str,
         required=True,
-        choices=['Qwen2Tokenizer', 'LLamaTokenizer', 'DeepSeekV2Tokenizer', 'LLama3Tokenizer', 'Qwen3Tokenizer', 'HuggingFaceTokenizer'],
+        choices=['Qwen2Tokenizer', 'LLamaTokenizer', 'DeepSeekV2Tokenizer', 'LLama3Tokenizer', 'Qwen3Tokenizer',
+                 'HuggingFaceTokenizer'],
         help='What type of tokenizer to use.',
     )
     group.add_argument('--load',
