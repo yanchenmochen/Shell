@@ -36,7 +36,7 @@ bash run_build_idxmap_sft_dataset_wlp.sh \
 
 packing前样本量: 93万条
 
-packing后样本量: 
+packing后样本量: 179333条
 
 ### 启动脚本中配置
 
@@ -68,11 +68,11 @@ fi
 train_iters = 数据集样本数 * epoches / global_batch_size
 
 代入一下数据:
-数据集样本数 = 
+数据集样本数 = 179333
 epoches = 3 
 global_batch_size = 128
 
-得到train_iters = 
+得到train_iters = 4218.75
 ```
 
 
