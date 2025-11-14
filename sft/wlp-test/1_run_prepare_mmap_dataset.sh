@@ -16,9 +16,8 @@ bash run_build_idxmap_sft_dataset_wlp.sh \
   /mnt/seed17/001688/wangluping/test-data/qwen_sft.json \
   HuggingFaceTokenizer \
   4096 \
-  /mnt/seed17/001688/wangluping/test-data/qwen_sft_negeos_packing \
-  /mnt/moer-train/public/models/zjllm-llama3-tokenizer \
-  true
+  /mnt/seed17/001688/wangluping/test-data/qwen_sft_negeos \
+  /mnt/moer-train/public/models/zjllm-llama3-tokenizer
 
 #cd ../pai_megatron_patch/toolkits/sft_data_preprocessing
 #
