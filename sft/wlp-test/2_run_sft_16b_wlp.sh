@@ -277,9 +277,9 @@ if [ $SFT = true ]; then
   TRAINING_ARGS+=(
     --dataset MMAP
     --train-mode finetune
-    --finetune
-    --no-load-optim
-    --no-load-rng
+    #    --finetune
+    #    --no-load-optim
+    #    --no-load-rng
     --dataloader-type cyclic
   )
 fi
@@ -407,8 +407,6 @@ fi
 ###########################
 ###### running scripts
 ###########################
-
-pip install datasets
 
 torchrun ${DISTRIBUTED_ARGS[@]} ${MEGATRON_MUSA_PATH}/examples/deepseek-sft/pretrain_deepseekv2.py \
   ${MODEL_ARGS[@]} \
