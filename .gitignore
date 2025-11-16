@@ -4,3 +4,4 @@ sft/**/*.log
 **/hostfile
 **/*.mudmp
 **/*.pt
+**/.idea/
