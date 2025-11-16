@@ -25,5 +25,6 @@ bash run_build_idxmap_sft_dataset_wlp.sh \
   /mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix.jsonl \
   HuggingFaceTokenizer \
   4096 \
-  /mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_negeos \
-  /mnt/moer-train/public/models/zjllm-llama3-tokenizer
+  /mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_negeos_packing \
+  /mnt/moer-train/public/models/zjllm-llama3-tokenizer \
+  true

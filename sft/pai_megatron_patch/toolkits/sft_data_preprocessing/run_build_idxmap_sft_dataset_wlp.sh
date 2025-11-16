@@ -20,6 +20,16 @@ else
   packing_option=""
 fi
 
+DEBUG=${DEBUG:-false}
+
+if [ $DEBUG = true ]; then
+  debug_option="\
+    --debug
+  "
+else
+  debug_option=""
+fi
+
 cmd="python build_idxmap_sft_dataset_wlp.py \
   --input ${input_data_path} \
   --output-prefix ${output_data_path} \
@@ -27,7 +37,7 @@ cmd="python build_idxmap_sft_dataset_wlp.py \
   --load ${load_dir} \
   --seq-length ${seq_len} \
   --workers 8 \
-  --partitions 1 ${packing_option}"
+  --partitions 1 ${packing_option} ${debug_option}"
 
 echo $cmd
 eval $cmd

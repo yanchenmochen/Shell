@@ -60,12 +60,12 @@ CHECKPOINT_LOAD_PATH=${CHECKPOINT_LOAD_PATH:-"/mnt/moer-train/public/checkpoints
 echo "Using MUSA backend"
 
 ROUTER_DTYPE=${ROUTER_DTYPE:-fp32}
-MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-4}
-GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-128}
+MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-2}
+GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-64}
 SEQ_LEN=${SEQ_LEN:-4096}
 
-DATA_PATH=${DATA_PATH:-"/mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_text_document"}
-#DATA_PATH=${DATA_PATH:-"/mnt/seed17/001688/wangluping/test-data/qwen_sft_text_document"}
+#DATA_PATH=${DATA_PATH:-"/mnt/seed17/001688/wangluping/test-data/qwen_sft_negeos_packing_text_document"}
+DATA_PATH=${DATA_PATH:-"/mnt/seed-program-nas/001688/datasets/SFT/tulu-3-sft-mixture/tulu_v3_mix_zjllm_tokenizer_negeos_packing_text_document"}
 DATA_CACHE_PATH=/mnt/seed17/001688/wangluping/test-data/datacache
 TOKENIZED_MODEL=/mnt/moer-train/public/models/zjllm-llama3-tokenizer
 MODEL_NAME=${MODEL_NAME:-'021-16B-sft'}
@@ -80,7 +80,7 @@ TRAIN_SAMPLES=$(($TRAIN_ITERS * $GLOBAL_BATCH_SIZE))
 
 WARMUP_STEPS=2000
 WARMUP_SAMPLES=$((WARMUP_STEPS * 1600))
-OUTPUT_DIR=${OUTPUT_DIR:-"/mnt/seed17/001688/wangluping/output"}
+OUTPUT_DIR=${OUTPUT_DIR:-"/mnt/seed17/001688/wangluping/output/debug"}
 unset MLFLOW_TRACKING_URI
 
 ###########################
@@ -277,10 +277,11 @@ if [ $SFT = true ]; then
   TRAINING_ARGS+=(
     --dataset MMAP
     --train-mode finetune
-    #    --finetune
-    #    --no-load-optim
-    #    --no-load-rng
+    --finetune
+    --no-load-optim
+    --no-load-rng
     --dataloader-type cyclic
+    --reset-position-ids
   )
 fi
 
@@ -359,7 +360,7 @@ EVAL_AND_LOGGING_ARGS=(
   --log-timers-to-tensorboard
   --save-interval $SAVE_INTERVAL
   --eval-interval 10000
-  --save $CHECKPOINT_PATH
+  #  --save $CHECKPOINT_PATH
   --load $CHECKPOINT_LOAD_PATH
   --eval-iters 0
   --tensorboard-dir $TENSORBOARD_PATH
