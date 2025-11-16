@@ -5,3 +5,4 @@ sft/**/*.log
 **/*.mudmp
 **/*.pt
 **/.idea/
+sft/**/output/

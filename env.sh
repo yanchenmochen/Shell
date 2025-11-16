@@ -3,39 +3,39 @@ export shome=/mnt/self-define/songquanheng
 export seed_home="/mnt/seed-program-nas/001688/songquanheng"
 
 
-alias dsv2="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/examples/deepseek_v2"
+alias dsv2="cd $shome/Pai-Megatron-Patch/examples/deepseek_v2"
 alias dsv2-zn="cd /mnt/self-define/zhangnan/Pai-Megatron-Patch/examples/deepseek_v2"
-alias tulu3="cd /mnt/self-define/songquanheng/dataset/tulu3/data/tulu-3-sft-mixture/"
+alias tulu3="cd $shome/dataset/tulu3/data/tulu-3-sft-mixture/"
 alias ds142ckpt="cd /mnt/self-define/zhangnan/checkpoints/DeepSeek-V2-Lite-to-mcore-tp1-pp4-ep2"
 alias zn="cd /mnt/self-define/zhangnan"
-alias sqh="cd /mnt/self-define/songquanheng"
-alias pai-sft="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/toolkits/sft_data_preprocessing"
-alias dsv2convert="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/deepseek"
+alias sqh="cd $shome"
+alias pai-sft="cd $shome/Pai-Megatron-Patch/toolkits/sft_data_preprocessing"
+alias dsv2convert="cd $shome/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/deepseek"
 alias dsv2convert-zn="cd /mnt/self-define/zhangnan/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/deepseek"
 
-alias zjlab-megatron="cd /mnt/self-define/songquanheng/zjlab-megatron"
-alias pai-megatron="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch"
-export pai_megatron_home=/mnt/self-define/songquanheng/Pai-Megatron-Patch
-export zjlab_megatron_home=/mnt/self-define/songquanheng/zjlab-megatron
-alias pai-llama-convert="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/llama"
-alias pai-llama-train="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/examples/llama3_1"
-alias pai-dsv2-train="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/examples/deepseek_v2"
-alias pai-dsv3-train="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/examples/deepseek_v3"
-alias pai-ds-convert="cd /mnt/self-define/songquanheng/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/deepseek"
-alias zjlab-sft="cd /mnt/self-define/songquanheng/zjlab-megatron/toolkits/sft_data_preprocessing"
-alias toolkit="cd /mnt/self-define/songquanheng/toolkits"
+alias zjlab-megatron="cd $shome/zjlab-megatron"
+alias pai-megatron="cd $shome/Pai-Megatron-Patch"
+export pai_megatron_home=$shome/Pai-Megatron-Patch
+export zjlab_megatron_home=$shome/zjlab-megatron
+alias pai-llama-convert="cd $shome/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/llama"
+alias pai-llama-train="cd $shome/Pai-Megatron-Patch/examples/llama3_1"
+alias pai-dsv2-train="cd $shome/Pai-Megatron-Patch/examples/deepseek_v2"
+alias pai-dsv3-train="cd $shome/Pai-Megatron-Patch/examples/deepseek_v3"
+alias pai-ds-convert="cd $shome/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/deepseek"
+alias zjlab-sft="cd $shome/zjlab-megatron/toolkits/sft_data_preprocessing"
+alias toolkit="cd $shome/toolkits"
 
-alias tools="cd /mnt/self-define/songquanheng/tools"
+alias tools="cd $shome/tools"
 
 
 alias os="cd /mnt/self-define/dongjie/model/OpenCompass/opencompass"
-alias zjlab-convert="cd /mnt/self-define/songquanheng/zjlab-megatron/toolkits/model_checkpoints_convertor"
-alias zjlab-llama-sft="cd /mnt/self-define/songquanheng/zjlab-megatron/examples/optimal_case/A100/llama3.1/sft"
-alias zjlab-llama-train="cd /mnt/self-define/songquanheng/zjlab-megatron/examples/training_scripts/llama3_1"
-alias zjlab-llama-convert="cd /mnt/self-define/songquanheng/zjlab-megatron/toolkits/model_checkpoints_convertor/llama"
-alias sft-llama="cd /mnt/self-define/songquanheng/output-Llama3_1-8b-sft/checkpoint/mcore-llama3-1-8B-sft"
+alias zjlab-convert="cd $shome/zjlab-megatron/toolkits/model_checkpoints_convertor"
+alias zjlab-llama-sft="cd $shome/zjlab-megatron/examples/optimal_case/A100/llama3.1/sft"
+alias zjlab-llama-train="cd $shome/zjlab-megatron/examples/training_scripts/llama3_1"
+alias zjlab-llama-convert="cd $shome/zjlab-megatron/toolkits/model_checkpoints_convertor/llama"
+alias sft-llama="cd $shome/output-Llama3_1-8b-sft/checkpoint/mcore-llama3-1-8B-sft"
 
-export inference="/mnt/self-define/songquanheng/Pai-Megatron-Patch/backends/megatron/Megatron-LM-241113/examples/inference/llama_mistral"
+export inference="$shome/Pai-Megatron-Patch/backends/megatron/Megatron-LM-241113/examples/inference/llama_mistral"
 alias 021="cd $seed_home/model/iter_0050000_hf_new"
 alias 32b="cd $seed_home/Shell/huggingface/model/021-32B"
 alias 16b="cd $seed_home/Shell/huggingface/model/021-16B"
