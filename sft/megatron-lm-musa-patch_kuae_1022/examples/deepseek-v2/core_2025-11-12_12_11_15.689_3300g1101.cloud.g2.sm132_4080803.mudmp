@@ -1,3 +1,0 @@
-[2025-11-12_12:11:15.689] pid:4080803, Application: /usr/bin/python encountered MUSA_ERROR_FIRMWARE_HANG in stream 0 of context 0 of device 3 when executing a command of type Command Barrier
-ExceptionType: None
-
