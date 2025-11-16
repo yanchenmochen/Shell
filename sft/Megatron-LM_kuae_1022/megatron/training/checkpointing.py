@@ -977,7 +977,9 @@ def _load_base_checkpoint(
     # Determine the type of the checkpoint on disk.
     checkpoint_name = get_checkpoint_name(load_dir, iteration, release, return_base_dir=True)
     ckpt_format = _get_checkpoint_format(checkpoint_name)
-
+    
+    if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
+        print(f"checkpoint_name: {checkpoint_name}, ckpt_format: {ckpt_format}")
     if not rank0:
         dist_infix = "distributed " if ckpt_format == "torch_dist" else ""
         if release:
@@ -1000,9 +1002,11 @@ def _load_base_checkpoint(
         if rank0:
             checkpoint_name = find_checkpoint_rank_0(load_dir, iteration, release)
         else:
+
             checkpoint_name = get_checkpoint_name(load_dir, iteration, release, return_base_dir=False)
+            print(f"checkpoint_name: {checkpoint_name}")
         try:
-            state_dict = torch.load(checkpoint_name, map_location='musa', weights_only=False)
+            state_dict = torch.load(checkpoint_name, map_location='musa:0', weights_only=False)
         except ModuleNotFoundError:
             from megatron.legacy.fp16_deprecated import loss_scaler
 
@@ -1395,6 +1399,29 @@ def load_checkpoint(ddp_model, optimizer, opt_param_scheduler, load_arg='load', 
         load_dir, args, rank0=False, checkpointing_context=checkpointing_context,
         **load_kwargs
     )
+    def convert_state_dict_v012_to_v014(state_dict):
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            # 跳过 mcore 不需要的 _extra_state
+
+
+            new_k = k
+
+            # kv_layernorm.weight → linear_kv_up_proj.layer_norm_weight
+            if "self_attention.kv_layernorm.weight" in k:
+                new_k = k.replace("self_attention.kv_layernorm.weight",
+                                "self_attention.linear_kv_up_proj.layer_norm_weight")
+
+            # pre_mlp_layernorm.weight → linear_fc1.layer_norm_weight
+            elif "decoder.layers.0.pre_mlp_layernorm.weight" in k:
+                new_k = k.replace("decoder.layers.0.pre_mlp_layernorm.weight",
+                                "decoder.layers.0.mlp.linear_fc1.layer_norm_weight")
+
+            new_state_dict[new_k] = v
+
+        return new_state_dict
+    if getattr(args, "model_name") == "deepseek-v2-lite":
+        state_dict['model'] = convert_state_dict_v012_to_v014(state_dict['model'])
 
     # Checkpoint not loaded.
     if state_dict is None:
@@ -1452,6 +1479,7 @@ def load_checkpoint(ddp_model, optimizer, opt_param_scheduler, load_arg='load', 
                 print(f"load_return: {load_return}")
     # Model.
     strict = False if args.retro_add_retriever else strict
+    strict = False
     if not skip_load_to_model_and_opt:
         if len(ddp_model) == 1:
             load_model_state_dict(ddp_model[0], state_dict['model'], strict)

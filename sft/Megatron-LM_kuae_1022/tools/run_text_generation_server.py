@@ -10,7 +10,11 @@ import os
 import sys
 from argparse import Namespace
 from contextlib import nullcontext
-
+import torch
+if os.getenv("ACCELERATOR_BACKEND") == "musa":
+    import musa_patch
+else:
+    import cuda_patch
 from megatron.core.inference.engines.abstract_engine import AbstractEngine
 from megatron.core.inference.model_inference_wrappers.inference_wrapper_config import (
     InferenceWrapperConfig,
@@ -19,7 +23,7 @@ from megatron.core.inference.sampling_params import SamplingParams
 from megatron.core.inference.text_generation_controllers.text_generation_controller import (
     TextGenerationController,
 )
-import torch
+
 
 from pretrain_gpt import model_provider as gpt_model_provider
 from pretrain_mamba import model_provider as mamba_model_provider
@@ -123,6 +127,19 @@ def add_text_generate_args(parser):
 
 @torch.inference_mode()
 def main(model_provider: str = "gpt"):
+    import os
+    if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
+        import debugpy
+        try:
+            # 使用异常处理适配多进程代码，这样只有一个进程会监听5678端口
+            debugpy.listen(("localhost", 5678))
+            print("Waiting for debugger attach")
+            debugpy.wait_for_client()
+            print("Debugger attached")
+        except Exception as e:
+            # 如果端口已被占用，忽略异常（可能是其他进程已启动调试）
+            print(e)
+            pass
     """Runs the text generation server with the specified model provider."""
     initialize_megatron(
         extra_args_provider=add_text_generate_args,
