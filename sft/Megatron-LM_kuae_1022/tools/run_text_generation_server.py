@@ -190,14 +190,16 @@ def main(model_provider: str = "gpt"):
     if args.enable_cuda_graph:
         print(f"Running warmup for CUDA graphs...")
         inference_engine.generate(
-            prompts=["Test prompt"], sampling_params=SamplingParams(num_tokens_to_generate=10)
+            prompts=["who are you?"], sampling_params=SamplingParams(num_tokens_to_generate=10)
         )
 
     if (
         mpu.is_pipeline_first_stage()
         and mpu.get_tensor_model_parallel_rank() == 0
-        and mpu.get_expert_model_parallel_rank() == 0
+        and mpu.get_expert_model_parallel_rank() == 0 
+        and mpu.get_data_parallel_rank() == 0
     ):
+        print(f"执行了一次")
         server = MegatronServer(inference_engine, args)
         server.run("0.0.0.0", port=args.port)
 

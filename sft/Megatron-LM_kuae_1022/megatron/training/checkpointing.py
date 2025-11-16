@@ -1004,9 +1004,10 @@ def _load_base_checkpoint(
         else:
 
             checkpoint_name = get_checkpoint_name(load_dir, iteration, release, return_base_dir=False)
-            print(f"checkpoint_name: {checkpoint_name}")
+            if os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes'):
+                print(f"checkpoint_name: {checkpoint_name}")
         try:
-            state_dict = torch.load(checkpoint_name, map_location='musa:0', weights_only=False)
+            state_dict = torch.load(checkpoint_name, map_location='musa', weights_only=False)
         except ModuleNotFoundError:
             from megatron.legacy.fp16_deprecated import loss_scaler
 
